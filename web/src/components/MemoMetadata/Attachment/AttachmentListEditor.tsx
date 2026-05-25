@@ -1,8 +1,19 @@
-import { ChevronDownIcon, ChevronUpIcon, FileAudioIcon, FileIcon, PaperclipIcon, PauseIcon, PlayIcon, XIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  FileAudioIcon,
+  FileIcon,
+  FileTextIcon,
+  PaperclipIcon,
+  PauseIcon,
+  PlayIcon,
+  XIcon,
+} from "lucide-react";
 import { type FC, type MouseEvent, useMemo, useRef, useState } from "react";
 import type { AttachmentItem, LocalFile } from "@/components/MemoEditor/types/attachment";
 import { getAudioRecordingTimeLabel, toAttachmentItems } from "@/components/MemoEditor/types/attachment";
 import MetadataSection from "@/components/MemoMetadata/MetadataSection";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import PreviewImageDialog from "@/components/PreviewImageDialog";
 import { cn } from "@/lib/utils";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
@@ -102,7 +113,7 @@ const AttachmentItemCard: FC<{
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const fileTypeLabel = item.category === "motion" ? "Live Photo" : getFileTypeLabel(mimeType);
-  const isPreviewable = category === "image" || category === "video" || category === "motion";
+  const isPreviewable = category === "image" || category === "video" || category === "motion" || category === "pdf";
   const recordingTimeLabel = isVoiceNote ? getAudioRecordingTimeLabel(filename) : undefined;
   const titleLabel =
     isVoiceNote && recordingTimeLabel
@@ -184,6 +195,18 @@ const AttachmentItemCard: FC<{
             >
               <PlayIcon className="h-3.5 w-3.5 translate-x-[0.5px]" />
             </button>
+          ) : category === "pdf" ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onPreview?.();
+              }}
+              className="flex size-full items-center justify-center rounded bg-muted/40 text-rose-500/80 transition-colors hover:bg-accent hover:text-rose-600"
+              aria-label={`Preview ${filename}`}
+            >
+              <FileTextIcon className="h-3.5 w-3.5" />
+            </button>
           ) : category === "audio" ? (
             <FileAudioIcon className="h-3.5 w-3.5 text-muted-foreground" />
           ) : (
@@ -231,6 +254,7 @@ const AttachmentListEditor: FC<AttachmentListEditorProps> = ({
   onRemoveLocalFile,
 }) => {
   const [previewState, setPreviewState] = useState<{ open: boolean; initialIndex: number }>({ open: false, initialIndex: 0 });
+  const [pdfPreviewState, setPdfPreviewState] = useState<{ open: boolean; initialIndex: number }>({ open: false, initialIndex: 0 });
   const items = toAttachmentItems(attachments, localFiles);
   const attachmentItems = items.filter((item) => !item.isLocal);
   const localItems = items.filter((item) => item.isLocal);
@@ -249,6 +273,11 @@ const AttachmentListEditor: FC<AttachmentListEditorProps> = ({
 
         if (item.category === "motion") {
           acc.push({ id: item.id, kind: "motion", motionUrl: item.sourceUrl, posterUrl: item.thumbnailUrl, filename: item.filename });
+          return acc;
+        }
+
+        if (item.category === "pdf") {
+          acc.push({ id: item.id, kind: "pdf", sourceUrl: item.sourceUrl, filename: item.filename });
           return acc;
         }
 
@@ -308,7 +337,16 @@ const AttachmentListEditor: FC<AttachmentListEditorProps> = ({
     }
   };
 
+  const pdfPreviewItems = useMemo(() => previewItems.filter((item) => item.kind === "pdf"), [previewItems]);
+
   const handlePreviewItem = (item: AttachmentItem) => {
+    if (item.category === "pdf") {
+      const previewIndex = pdfPreviewItems.findIndex((previewItem) => previewItem.id === item.id);
+      if (previewIndex < 0) return;
+      setPdfPreviewState({ open: true, initialIndex: previewIndex });
+      return;
+    }
+
     const previewIndex = previewItems.findIndex((previewItem) => previewItem.id === item.id);
     if (previewIndex < 0) {
       return;
@@ -333,7 +371,7 @@ const AttachmentListEditor: FC<AttachmentListEditorProps> = ({
               key={item.id}
               item={item}
               onPreview={
-                item.category === "image" || item.category === "video" || item.category === "motion"
+                item.category === "image" || item.category === "video" || item.category === "motion" || item.category === "pdf"
                   ? () => handlePreviewItem(item)
                   : undefined
               }
@@ -352,6 +390,13 @@ const AttachmentListEditor: FC<AttachmentListEditorProps> = ({
         onOpenChange={(open) => setPreviewState((state) => ({ ...state, open }))}
         items={previewItems}
         initialIndex={previewState.initialIndex}
+      />
+
+      <PdfPreviewDialog
+        open={pdfPreviewState.open}
+        onOpenChange={(open) => setPdfPreviewState((state) => ({ ...state, open }))}
+        items={pdfPreviewItems}
+        initialIndex={pdfPreviewState.initialIndex}
       />
     </>
   );

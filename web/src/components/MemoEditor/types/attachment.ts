@@ -3,7 +3,7 @@ import { MotionMediaFamily, MotionMediaRole } from "@/types/proto/api/v1/attachm
 import { getAttachmentThumbnailUrl, getAttachmentType, getAttachmentUrl } from "@/utils/attachment";
 import { buildAttachmentVisualItems } from "@/utils/media-item";
 
-export type FileCategory = "image" | "video" | "motion" | "audio" | "document";
+export type FileCategory = "image" | "video" | "motion" | "audio" | "document" | "pdf";
 
 export interface AttachmentItem {
   readonly id: string;
@@ -56,6 +56,7 @@ function categorizeFile(mimeType: string, motionMedia?: MotionMedia): FileCatego
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType === "application/pdf") return "pdf";
   return "document";
 }
 
@@ -83,7 +84,7 @@ function visualItemToAttachmentItem(item: ReturnType<typeof buildAttachmentVisua
     id: item.id,
     memberIds: item.attachmentNames,
     filename: item.filename,
-    category: item.kind === "motion" ? "motion" : item.kind,
+    category: item.kind === "motion" ? "motion" : item.kind === "pdf" ? "pdf" : item.kind,
     mimeType: item.mimeType,
     thumbnailUrl: item.posterUrl,
     sourceUrl: item.sourceUrl,
@@ -162,7 +163,12 @@ function toLocalMotionItems(localFiles: LocalFile[]): AttachmentItem[] {
 export function toAttachmentItems(attachments: Attachment[], localFiles: LocalFile[] = []): AttachmentItem[] {
   const visualAttachments = attachments.filter((attachment) => {
     const attachmentType = getAttachmentType(attachment);
-    return attachmentType === "image/*" || attachmentType === "video/*" || attachment.motionMedia !== undefined;
+    return (
+      attachmentType === "image/*" ||
+      attachmentType === "video/*" ||
+      attachmentType === "application/pdf" ||
+      attachment.motionMedia !== undefined
+    );
   });
   const attachmentVisualIds = new Set<string>();
   const attachmentVisualItems = buildAttachmentVisualItems(visualAttachments).map((item) => {
@@ -188,7 +194,7 @@ export function separateMediaAndDocs(items: AttachmentItem[]): { media: Attachme
   const docs: AttachmentItem[] = [];
 
   for (const item of items) {
-    if (item.category === "image" || item.category === "video" || item.category === "motion") {
+    if (item.category === "image" || item.category === "video" || item.category === "motion" || item.category === "pdf") {
       media.push(item);
     } else {
       docs.push(item);

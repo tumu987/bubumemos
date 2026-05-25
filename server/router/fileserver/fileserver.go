@@ -244,7 +244,12 @@ func (s *FileServerService) serveStaticFile(c *echo.Context, attachment *store.A
 		}
 	}
 
-	setSecurityHeaders(c)
+	// PDFs need to be embeddable via iframe; skip X-Frame-Options.
+	if contentType == "application/pdf" {
+		setPdfHeaders(c)
+	} else {
+		setSecurityHeaders(c)
+	}
 	setMediaHeaders(c, contentType, attachment.Type)
 
 	// Force download for non-media files to prevent XSS execution.
@@ -743,6 +748,14 @@ func setSecurityHeaders(c *echo.Context) {
 	h := c.Response().Header()
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("X-Frame-Options", "DENY")
+	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline';")
+}
+
+// setPdfHeaders sets security headers for PDF responses, omitting X-Frame-Options
+// so that PDFs can be embedded in iframes for browser-native preview.
+func setPdfHeaders(c *echo.Context) {
+	h := c.Response().Header()
+	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline';")
 }
 

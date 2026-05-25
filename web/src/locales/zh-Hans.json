@@ -654,6 +654,9 @@
       "url": "链接",
       "label": "Webhook"
     },
+    "import-export": {
+      "label": "导入/导出"
+    },
     "tags": {
       "label": "标签",
       "title": "标签元数据",

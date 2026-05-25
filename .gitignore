@@ -31,3 +31,9 @@ dist
 
 # Frontend test coverage output (Vitest + @vitest/coverage-v8).
 web/coverage/
+
+# Vite dependency pre-bundling cache (may appear at repo root when running vite from root)
+.vite
+
+# Root-level node_modules (pnpm store may leak)
+node_modules/

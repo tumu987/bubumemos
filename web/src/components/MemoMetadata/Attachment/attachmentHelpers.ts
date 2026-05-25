@@ -16,11 +16,12 @@ export interface AttachmentMetadata {
 export const isImageAttachment = (attachment: Attachment): boolean => getAttachmentType(attachment) === "image/*";
 export const isVideoAttachment = (attachment: Attachment): boolean => getAttachmentType(attachment) === "video/*";
 export const isAudioAttachment = (attachment: Attachment): boolean => getAttachmentType(attachment) === "audio/*";
+export const isPdfAttachment = (attachment: Attachment): boolean => getAttachmentType(attachment) === "application/pdf";
 
 export const separateAttachments = (attachments: Attachment[]): AttachmentGroups => {
   return attachments.reduce<AttachmentGroups>(
     (groups, attachment) => {
-      if (isImageAttachment(attachment) || isVideoAttachment(attachment)) {
+      if (isImageAttachment(attachment) || isVideoAttachment(attachment) || isPdfAttachment(attachment)) {
         groups.visual.push(attachment);
       } else if (isAudioAttachment(attachment)) {
         groups.audio.push(attachment);

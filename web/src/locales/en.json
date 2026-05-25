@@ -470,6 +470,9 @@
       "week-start-day-description": "Controls the first day shown in calendar-style views.",
       "week-start-day": "Week start day"
     },
+    "import-export": {
+      "label": "Import / Export"
+    },
     "member": {
       "active": "Active",
       "admin": "Admin",

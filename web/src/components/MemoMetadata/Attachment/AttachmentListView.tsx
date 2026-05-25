@@ -1,6 +1,7 @@
-import { DownloadIcon, FileIcon, PaperclipIcon, PlayIcon } from "lucide-react";
+import { DownloadIcon, FileIcon, PaperclipIcon } from "lucide-react";
 import type { PropsWithChildren } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import AudioPlayerDialog from "@/components/AudioPlayerDialog";
 import MetadataSection from "@/components/MemoMetadata/MetadataSection";
 import MotionPhotoPreview from "@/components/MotionPhotoPreview";
 import { cn } from "@/lib/utils";
@@ -11,7 +12,6 @@ import { buildAttachmentVisualItems } from "@/utils/media-item";
 import AudioAttachmentItem from "./AudioAttachmentItem";
 import { getAttachmentMetadata, isAudioAttachment, separateAttachments } from "./attachmentHelpers";
 import {
-  COLLAGE_VIDEO_PLAY_BADGE_CLASS,
   COVER_MEDIA_CLASS,
   MEDIA_HOVER_GRADIENT_CLASS,
   MEDIA_HOVER_SURFACE_CLASS,
@@ -21,11 +21,13 @@ import {
   SINGLE_VIDEO_CARD_WIDTH_CLASS,
   VISUAL_TILE_BUTTON_CLASS,
 } from "./attachmentVisualClasses";
+import PdfCard from "./PdfCard";
 import { resolveVisualGalleryLayout } from "./visualGalleryLayout";
 
 interface AttachmentListViewProps {
   attachments: Attachment[];
   onImagePreview?: (items: PreviewMediaItem[], index: number) => void;
+  onPdfPreview?: (items: PreviewMediaItem[], index: number) => void;
 }
 
 type VisualItem = AttachmentVisualItem;
@@ -75,7 +77,7 @@ const VisualTile = ({
   onPreview,
   overlayLabel,
   children,
-}: PropsWithChildren<{ className?: string; onPreview?: () => void; overlayLabel?: string }>) => {
+}: PropsWithChildren<{ className?: string; onPreview?: (e: React.MouseEvent) => void; overlayLabel?: string }>) => {
   return (
     <button type="button" className={cn(VISUAL_TILE_BUTTON_CLASS, className)} onClick={onPreview}>
       <div className={MEDIA_HOVER_SURFACE_CLASS}>
@@ -87,41 +89,48 @@ const VisualTile = ({
   );
 };
 
-const VideoPlayBadge = ({ className, children }: PropsWithChildren<{ className?: string }>) => (
-  <span
-    className={cn(
-      "pointer-events-none absolute inline-flex items-center justify-center rounded-full bg-background/85 text-foreground shadow-sm backdrop-blur-sm",
-      className,
-    )}
-  >
-    {children}
-  </span>
-);
-
 const CollageVisualItem = ({
   item,
   onPreview,
+  onPdfPreview,
   className,
   overlayLabel,
 }: {
   item: VisualItem;
   onPreview?: () => void;
+  onPdfPreview?: () => void;
   className?: string;
   overlayLabel?: string;
 }) => {
   const motionPreviewProps = item.kind === "motion" ? getMotionPreviewProps(item) : undefined;
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleClick = (_e: React.MouseEvent) => {
+    if (item.kind === "video") {
+      videoRef.current?.requestFullscreen().catch(() => {});
+      return;
+    }
+    if (item.kind === "pdf") {
+      onPdfPreview?.();
+      return;
+    }
+    onPreview?.();
+  };
 
   return (
-    <VisualTile className={cn("block h-full w-full", className)} onPreview={onPreview} overlayLabel={overlayLabel}>
+    <VisualTile className={cn("block h-full w-full", className)} onPreview={handleClick} overlayLabel={overlayLabel}>
       {item.kind === "video" ? (
-        <>
-          <video src={item.sourceUrl} className={COVER_MEDIA_CLASS} preload="metadata" />
-          {!overlayLabel && (
-            <VideoPlayBadge className={COLLAGE_VIDEO_PLAY_BADGE_CLASS}>
-              <PlayIcon className="h-3.5 w-3.5 fill-current" />
-            </VideoPlayBadge>
-          )}
-        </>
+        <div className="relative h-full w-full bg-neutral-900">
+          <video
+            ref={videoRef}
+            src={item.sourceUrl}
+            className="absolute inset-0 h-full w-full object-contain"
+            preload="metadata"
+            playsInline
+            disablePictureInPicture
+            controls
+          />
+        </div>
       ) : item.kind === "motion" && motionPreviewProps ? (
         <MotionPhotoPreview
           posterUrl={item.posterUrl}
@@ -132,6 +141,10 @@ const CollageVisualItem = ({
           badgeClassName="left-2 top-2 px-2 py-0.5 text-[10px]"
           mediaClassName={COVER_MEDIA_CLASS}
         />
+      ) : item.kind === "pdf" ? (
+        <div className="flex h-full w-full items-center justify-center bg-white p-4">
+          <PdfCard filename={item.filename} size={item.attachments[0]?.size ? Number(item.attachments[0].size) : undefined} />
+        </div>
       ) : (
         <img src={item.posterUrl} alt={item.filename} className={COVER_MEDIA_CLASS} loading="lazy" decoding="async" />
       )}
@@ -139,8 +152,21 @@ const CollageVisualItem = ({
   );
 };
 
-const SingleVisualItem = ({ item, onPreview }: { item: VisualItem; onPreview?: () => void }) => {
+const SingleVisualItem = ({ item, onPreview, onPdfPreview }: { item: VisualItem; onPreview?: () => void; onPdfPreview?: () => void }) => {
   const motionPreviewProps = item.kind === "motion" ? getMotionPreviewProps(item) : undefined;
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleVideoClick = useCallback(() => {
+    videoRef.current?.requestFullscreen().catch(() => {});
+  }, []);
+
+  if (item.kind === "pdf") {
+    return (
+      <VisualTile className="inline-block max-w-full" onPreview={() => onPdfPreview?.()}>
+        <PdfCard filename={item.filename} size={item.attachments[0]?.size ? Number(item.attachments[0].size) : undefined} />
+      </VisualTile>
+    );
+  }
 
   if (item.kind === "image") {
     return (
@@ -168,19 +194,31 @@ const SingleVisualItem = ({ item, onPreview }: { item: VisualItem; onPreview?: (
   }
 
   return (
-    <VisualTile className={cn("block", SINGLE_VIDEO_CARD_WIDTH_CLASS)} onPreview={onPreview}>
-      <div className="relative aspect-video bg-black/5">
-        <video src={item.sourceUrl} poster={item.posterUrl} className={COVER_MEDIA_CLASS} preload="metadata" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-transparent" />
-        <VideoPlayBadge className="bottom-3 right-3 h-9 w-9">
-          <PlayIcon className="h-4 w-4 fill-current" />
-        </VideoPlayBadge>
+    <VisualTile className={cn("block", SINGLE_VIDEO_CARD_WIDTH_CLASS)} onPreview={handleVideoClick}>
+      <div className="relative aspect-video bg-neutral-900">
+        <video
+          ref={videoRef}
+          src={item.sourceUrl}
+          className="absolute inset-0 h-full w-full object-contain"
+          preload="metadata"
+          playsInline
+          disablePictureInPicture
+          controls
+        />
       </div>
     </VisualTile>
   );
 };
 
-const VisualGallery = ({ items, onPreview }: { items: VisualItem[]; onPreview?: (itemId: string) => void }) => {
+const VisualGallery = ({
+  items,
+  onPreview,
+  onPdfPreview,
+}: {
+  items: VisualItem[];
+  onPreview?: (itemId: string) => void;
+  onPdfPreview?: (itemId: string) => void;
+}) => {
   const layout = resolveVisualGalleryLayout(items);
 
   if (!layout) {
@@ -190,7 +228,11 @@ const VisualGallery = ({ items, onPreview }: { items: VisualItem[]; onPreview?: 
   if (layout.mode === "single") {
     return (
       <div className="w-full">
-        <SingleVisualItem item={layout.item} onPreview={() => onPreview?.(layout.item.id)} />
+        <SingleVisualItem
+          item={layout.item}
+          onPreview={() => onPreview?.(layout.item.id)}
+          onPdfPreview={() => onPdfPreview?.(layout.item.id)}
+        />
       </div>
     );
   }
@@ -204,13 +246,22 @@ const VisualGallery = ({ items, onPreview }: { items: VisualItem[]; onPreview?: 
           className={className}
           overlayLabel={overlayLabel}
           onPreview={() => onPreview?.(item.id)}
+          onPdfPreview={() => onPdfPreview?.(item.id)}
         />
       ))}
     </div>
   );
 };
 
-const AudioList = ({ attachments, compact = false }: { attachments: Attachment[]; compact?: boolean }) => (
+const AudioList = ({
+  attachments,
+  compact = false,
+  onExpand,
+}: {
+  attachments: Attachment[];
+  compact?: boolean;
+  onExpand?: (attachment: Attachment) => void;
+}) => (
   <div className={cn("gap-2", compact ? "grid grid-cols-1 sm:grid-cols-2" : "flex flex-col")}>
     {attachments.map((attachment) => (
       <AudioAttachmentItem
@@ -220,6 +271,7 @@ const AudioList = ({ attachments, compact = false }: { attachments: Attachment[]
         mimeType={attachment.type}
         size={Number(attachment.size)}
         compact={compact}
+        onExpand={onExpand ? () => onExpand(attachment) : undefined}
       />
     ))}
   </div>
@@ -237,40 +289,81 @@ const DocsList = ({ attachments }: { attachments: Attachment[] }) => (
 
 const Divider = () => <div className="border-t border-border/70 opacity-80" />;
 
-const AttachmentListView = ({ attachments, onImagePreview }: AttachmentListViewProps) => {
+const AttachmentListView = ({ attachments, onImagePreview, onPdfPreview }: AttachmentListViewProps) => {
   const { visual, audio, docs } = useMemo(() => separateAttachments(attachments), [attachments]);
   const visualItems = useMemo(() => buildAttachmentVisualItems(visual), [visual]);
   const previewItems = useMemo(() => visualItems.map((item) => item.previewItem), [visualItems]);
+  const pdfPreviewItems = useMemo(() => previewItems.filter((item) => item.kind === "pdf"), [previewItems]);
   const hasVisual = visualItems.length > 0;
   const hasAudio = audio.length > 0;
   const hasDocs = docs.length > 0;
   const hasMedia = hasVisual || hasAudio;
 
+  const [audioPlayerState, setAudioPlayerState] = useState<{
+    open: boolean;
+    filename: string;
+    sourceUrl: string;
+    mimeType: string;
+    size?: number;
+  }>({ open: false, filename: "", sourceUrl: "", mimeType: "" });
+
   if (attachments.length === 0) {
     return null;
   }
 
-  const handlePreview = (itemId: string) => {
-    const index = previewItems.findIndex((item) => item.id === itemId);
-    onImagePreview?.(previewItems, index >= 0 ? index : 0);
-  };
+  const handlePreview = useCallback(
+    (itemId: string) => {
+      const index = previewItems.findIndex((item) => item.id === itemId);
+      onImagePreview?.(previewItems, index >= 0 ? index : 0);
+    },
+    [previewItems, onImagePreview],
+  );
+
+  const handlePdfPreview = useCallback(
+    (itemId: string) => {
+      const index = pdfPreviewItems.findIndex((item) => item.id === itemId);
+      onPdfPreview?.(pdfPreviewItems, index >= 0 ? index : 0);
+    },
+    [pdfPreviewItems, onPdfPreview],
+  );
+
+  const handleAudioExpand = useCallback((attachment: Attachment) => {
+    setAudioPlayerState({
+      open: true,
+      filename: attachment.filename,
+      sourceUrl: getAttachmentUrl(attachment),
+      mimeType: attachment.type,
+      size: Number(attachment.size),
+    });
+  }, []);
 
   return (
-    <MetadataSection
-      icon={PaperclipIcon}
-      title="Attachments"
-      count={visualItems.length + audio.length + docs.length}
-      contentClassName="flex flex-col gap-2 p-2"
-    >
-      {hasMedia && (
-        <div className="flex flex-col gap-2">
-          {hasVisual && <VisualGallery items={visualItems} onPreview={handlePreview} />}
-          {hasAudio && <AudioList attachments={audio.filter(isAudioAttachment)} compact />}
-        </div>
-      )}
-      {hasMedia && hasDocs && <Divider />}
-      {hasDocs && <DocsList attachments={docs} />}
-    </MetadataSection>
+    <>
+      <MetadataSection
+        icon={PaperclipIcon}
+        title="Attachments"
+        count={visualItems.length + audio.length + docs.length}
+        contentClassName="flex flex-col gap-2 p-2"
+      >
+        {hasMedia && (
+          <div className="flex flex-col gap-2">
+            {hasVisual && <VisualGallery items={visualItems} onPreview={handlePreview} onPdfPreview={handlePdfPreview} />}
+            {hasAudio && <AudioList attachments={audio.filter(isAudioAttachment)} compact onExpand={handleAudioExpand} />}
+          </div>
+        )}
+        {hasMedia && hasDocs && <Divider />}
+        {hasDocs && <DocsList attachments={docs} />}
+      </MetadataSection>
+
+      <AudioPlayerDialog
+        open={audioPlayerState.open}
+        onOpenChange={(open) => setAudioPlayerState((prev) => ({ ...prev, open }))}
+        filename={audioPlayerState.filename}
+        sourceUrl={audioPlayerState.sourceUrl}
+        mimeType={audioPlayerState.mimeType}
+        size={audioPlayerState.size}
+      />
+    </>
   );
 };
 

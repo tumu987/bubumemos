@@ -35,6 +35,7 @@ const STUB_CONTEXT: MemoViewContextValue = {
   openEditor: () => {},
   toggleBlurVisibility: () => {},
   openPreview: () => {},
+  openPdfPreview: () => {},
 };
 
 const AttachmentThumbnails = ({ attachments }: { attachments: Attachment[] }) => {

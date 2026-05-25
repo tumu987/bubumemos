@@ -35,11 +35,16 @@ export interface MotionPreviewMediaItem extends PreviewMediaItemBase {
   presentationTimestampUs?: bigint;
 }
 
-export type PreviewMediaItem = ImagePreviewMediaItem | VideoPreviewMediaItem | MotionPreviewMediaItem;
+export interface PdfPreviewMediaItem extends PreviewMediaItemBase {
+  kind: "pdf";
+  sourceUrl: string;
+}
+
+export type PreviewMediaItem = ImagePreviewMediaItem | VideoPreviewMediaItem | MotionPreviewMediaItem | PdfPreviewMediaItem;
 
 export interface AttachmentVisualItem {
   id: string;
-  kind: "image" | "video" | "motion";
+  kind: "image" | "video" | "motion" | "pdf";
   filename: string;
   posterUrl: string;
   sourceUrl: string;
@@ -103,7 +108,10 @@ export function buildAttachmentVisualItems(attachments: Attachment[]): Attachmen
 export function countLogicalAttachmentItems(attachments: Attachment[]): number {
   const visualAttachments = attachments.filter(
     (attachment) =>
-      getAttachmentType(attachment) === "image/*" || getAttachmentType(attachment) === "video/*" || isMotionAttachment(attachment),
+      getAttachmentType(attachment) === "image/*" ||
+      getAttachmentType(attachment) === "video/*" ||
+      getAttachmentType(attachment) === "application/pdf" ||
+      isMotionAttachment(attachment),
   );
   const visualNames = new Set(visualAttachments.map((attachment) => attachment.name));
   const visualCount = buildAttachmentVisualItems(visualAttachments).length;
@@ -114,12 +122,12 @@ export function countLogicalAttachmentItems(attachments: Attachment[]): number {
 function buildSingleAttachmentItem(attachment: Attachment): AttachmentVisualItem {
   const attachmentType = getAttachmentType(attachment);
   const sourceUrl = getAttachmentUrl(attachment);
-  const posterUrl = attachmentType === "image/*" ? getAttachmentThumbnailUrl(attachment) : sourceUrl;
-  const previewKind = attachmentType === "video/*" ? "video" : "image";
+  const posterUrl = getAttachmentThumbnailUrl(attachment);
+  const previewKind = attachmentType === "video/*" ? "video" : attachmentType === "application/pdf" ? "pdf" : "image";
 
   return {
     id: attachment.name,
-    kind: attachmentType === "video/*" ? "video" : "image",
+    kind: attachmentType === "video/*" ? "video" : attachmentType === "application/pdf" ? "pdf" : "image",
     filename: attachment.filename,
     posterUrl,
     sourceUrl,
@@ -129,9 +137,9 @@ function buildSingleAttachmentItem(attachment: Attachment): AttachmentVisualItem
       id: attachment.name,
       kind: previewKind,
       sourceUrl,
-      posterUrl,
+      posterUrl: previewKind === "pdf" || previewKind === "video" ? undefined : posterUrl,
       filename: attachment.filename,
-    },
+    } as PreviewMediaItem,
     mimeType: attachment.type,
   };
 }

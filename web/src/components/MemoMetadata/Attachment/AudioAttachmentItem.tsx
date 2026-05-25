@@ -1,4 +1,4 @@
-import { PauseIcon, PlayIcon } from "lucide-react";
+import { Maximize2, PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatFileSize, getFileTypeLabel } from "@/utils/format";
@@ -59,9 +59,19 @@ interface AudioAttachmentItemProps {
   title?: string;
   compact?: boolean;
   className?: string;
+  onExpand?: () => void;
 }
 
-const AudioAttachmentItem = ({ filename, sourceUrl, mimeType, size, title, compact = false, className }: AudioAttachmentItemProps) => {
+const AudioAttachmentItem = ({
+  filename,
+  sourceUrl,
+  mimeType,
+  size,
+  title,
+  compact = false,
+  className,
+  onExpand,
+}: AudioAttachmentItemProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -134,14 +144,29 @@ const AudioAttachmentItem = ({ filename, sourceUrl, mimeType, size, title, compa
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={togglePlayback}
-          className="inline-flex size-5.5 shrink-0 items-center justify-center rounded-md border border-border/45 bg-background/90 text-foreground transition-colors hover:bg-muted/45"
-          aria-label={isPlaying ? `Pause ${displayTitle}` : `Play ${displayTitle}`}
-        >
-          {isPlaying ? <PauseIcon className="size-2.5" /> : <PlayIcon className="size-2.5 translate-x-[0.5px]" />}
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={togglePlayback}
+            className="inline-flex size-5.5 shrink-0 items-center justify-center rounded-md border border-border/45 bg-background/90 text-foreground transition-colors hover:bg-muted/45"
+            aria-label={isPlaying ? `Pause ${displayTitle}` : `Play ${displayTitle}`}
+          >
+            {isPlaying ? <PauseIcon className="size-2.5" /> : <PlayIcon className="size-2.5 translate-x-[0.5px]" />}
+          </button>
+          {onExpand && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExpand();
+              }}
+              className="inline-flex size-5.5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={`Open ${displayTitle} in full-screen player`}
+            >
+              <Maximize2 className="size-2.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className={cn("mt-1", compact ? "space-y-1.5" : "flex items-center gap-1")}>
