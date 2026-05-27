@@ -1,4 +1,5 @@
 import { create } from "@bufbuild/protobuf";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { attachmentServiceClient, memoServiceClient } from "@/connect";
 import { base64ToBytes } from "@/utils/base64";
 import { AttachmentSchema } from "@/types/proto/api/v1/attachment_service_pb";
@@ -106,6 +107,8 @@ export async function executeImport(data: ExportData, onProgress?: (current: num
       created = c;
 
       const visibility = parseVisibility(memoExport.visibility);
+      const createTime = memoExport.createTime ? timestampFromDate(new Date(memoExport.createTime)) : undefined;
+      const updateTime = memoExport.updateTime ? timestampFromDate(new Date(memoExport.updateTime)) : undefined;
 
       await memoServiceClient.createMemo({
         memo: create(MemoSchema, {
@@ -113,6 +116,8 @@ export async function executeImport(data: ExportData, onProgress?: (current: num
           visibility,
           tags: memoExport.tags ?? [],
           pinned: memoExport.pinned ?? false,
+          createTime,
+          updateTime,
           attachments: created.map((a) => create(AttachmentSchema, { name: a.name })),
         }),
       });
