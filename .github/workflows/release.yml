@@ -3,27 +3,6 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-
-jobs:
-  release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create release from tag
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: "${{ github.ref_name }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-name: Release
-
-on:
-  push:
-    tags:
       - "v*.*.*"
   workflow_dispatch:
 

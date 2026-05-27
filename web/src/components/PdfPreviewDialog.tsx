@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2Icon, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MobileNavBar from "@/components/MobileNavBar";
 import PreviewNavButton from "@/components/PreviewNavButton";
@@ -18,6 +18,7 @@ interface Props {
 function PdfPreviewDialog({ open, onOpenChange, items, initialIndex = 0 }: Props) {
   const sm = useMediaQuery("sm");
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [iframeLoading, setIframeLoading] = useState(true);
 
   const pdfItems = useMemo(() => items.filter((item) => item.kind === "pdf"), [items]);
   const itemCount = pdfItems.length;
@@ -30,6 +31,7 @@ function PdfPreviewDialog({ open, onOpenChange, items, initialIndex = 0 }: Props
   useEffect(() => {
     if (open) {
       setCurrentIndex(initialIndex);
+      setIframeLoading(true);
     }
   }, [initialIndex, open]);
 
@@ -61,8 +63,14 @@ function PdfPreviewDialog({ open, onOpenChange, items, initialIndex = 0 }: Props
   }
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
-  const handlePrevious = useCallback(() => setCurrentIndex((prev) => Math.max(prev - 1, 0)), []);
-  const handleNext = useCallback(() => setCurrentIndex((prev) => Math.min(prev + 1, itemCount - 1)), [itemCount]);
+  const handlePrevious = useCallback(() => {
+    setCurrentIndex((prev) => Math.max(prev - 1, 0));
+    setIframeLoading(true);
+  }, []);
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => Math.min(prev + 1, itemCount - 1));
+    setIframeLoading(true);
+  }, [itemCount]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -99,11 +107,17 @@ function PdfPreviewDialog({ open, onOpenChange, items, initialIndex = 0 }: Props
           </div>
         </div>
 
+        {iframeLoading && (
+          <div className="absolute inset-0 flex items-center justify-center pt-12">
+            <Loader2Icon className="h-8 w-8 animate-spin text-white/60" />
+          </div>
+        )}
         <iframe
           key={currentItem.id}
           src={currentItem.kind === "pdf" ? currentItem.sourceUrl : ""}
           title={currentItem.filename}
           className="h-full w-full border-0 pt-12"
+          onLoad={() => setIframeLoading(false)}
         />
 
         {hasMultiple && sm && (

@@ -127,7 +127,6 @@ const CollageVisualItem = ({
             className="absolute inset-0 h-full w-full object-contain"
             preload="metadata"
             playsInline
-            disablePictureInPicture
             controls
           />
         </div>
@@ -202,7 +201,6 @@ const SingleVisualItem = ({ item, onPreview, onPdfPreview }: { item: VisualItem;
           className="absolute inset-0 h-full w-full object-contain"
           preload="metadata"
           playsInline
-          disablePictureInPicture
           controls
         />
       </div>

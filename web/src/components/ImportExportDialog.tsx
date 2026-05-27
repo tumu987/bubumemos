@@ -23,41 +23,34 @@ const SelectAllCheckbox = ({
   onCheckedChange: () => void;
 }) => <Checkbox id={id} checked={indeterminate ? "indeterminate" : checked} onCheckedChange={onCheckedChange} />;
 
-type Tab = "export" | "import";
+export type ImportExportTab = "export" | "import";
 type ExportFormat = "json" | "markdown";
 type ImportStep = "select" | "preview" | "importing" | "done";
 
 interface ImportExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTab?: ImportExportTab;
 }
 
-const ImportExportDialog = ({ open, onOpenChange }: ImportExportDialogProps) => {
-  const [activeTab, setActiveTab] = useState<Tab>("export");
+const ImportExportDialog = ({ open, onOpenChange, initialTab = "export" }: ImportExportDialogProps) => {
+  const [activeTab, setActiveTab] = useState<ImportExportTab>(initialTab);
 
-  // Shared reset on open
   useEffect(() => {
     if (open) {
-      setActiveTab("export");
+      setActiveTab(initialTab);
     }
-  }, [open]);
+  }, [open, initialTab]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="2xl" className="max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>数据导入 / 导出</DialogTitle>
-          <DialogDescription>将 Memos 导出为备份文件，或从之前的导出中恢复数据。</DialogDescription>
+          <DialogTitle>{activeTab === "export" ? "导出数据" : "导入数据"}</DialogTitle>
+          <DialogDescription>
+            {activeTab === "export" ? "将 Memos 导出为 JSON 或 Markdown 备份文件。" : "从之前的 JSON 导出文件中恢复数据。"}
+          </DialogDescription>
         </DialogHeader>
-
-        <div className="flex border-b border-border" role="tablist">
-          <TabButton active={activeTab === "export"} onClick={() => setActiveTab("export")} role="tab" aria-selected={activeTab === "export"}>
-            导出
-          </TabButton>
-          <TabButton active={activeTab === "import"} onClick={() => setActiveTab("import")} role="tab" aria-selected={activeTab === "import"}>
-            导入
-          </TabButton>
-        </div>
 
         {activeTab === "export" ? <ExportTab key="export" /> : <ImportTab key="import" />}
       </DialogContent>
@@ -65,35 +58,28 @@ const ImportExportDialog = ({ open, onOpenChange }: ImportExportDialogProps) => 
   );
 };
 
-const TabButton = ({ active, onClick, children, ...props }: { active: boolean; onClick: () => void; children: React.ReactNode; [key: string]: unknown }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={cn(
-      "relative px-4 py-2.5 text-sm font-medium transition-colors",
-      active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-    )}
-    {...props}
-  >
-    {children}
-    {active && <div className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />}
-  </button>
-);
-
 const ExportTab = () => {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [exporting, setExporting] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
 
-  useEffect(() => {
+  const loadMemos = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetchAllMemosForExport()
       .then((all) => {
         setMemos(all);
         setSelected(new Set(all.map((_, i) => i)));
       })
+      .catch(() => setError("加载 memo 失败，请重试。"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadMemos();
+  }, [loadMemos]);
 
   const allSelected = memos.length > 0 && selected.size === memos.length;
   const someSelected = selected.size > 0 && selected.size < memos.length;
@@ -119,7 +105,7 @@ const ExportTab = () => {
   const selectedMemos = useMemo(() => memos.filter((_, i) => selected.has(i)), [memos, selected]);
 
   const doExport = async (format: ExportFormat) => {
-    setExporting(true);
+    setExportingFormat(format);
     try {
       if (format === "json") {
         await exportMemosAsJson(selectedMemos);
@@ -127,12 +113,23 @@ const ExportTab = () => {
         await exportMemosAsMarkdown(selectedMemos);
       }
     } finally {
-      setExporting(false);
+      setExportingFormat(null);
     }
   };
 
   return (
     <div className="flex flex-col gap-4">
+      {error && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          <div className="flex items-start gap-2">
+            <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadMemos}>
+            重试
+          </Button>
+        </div>
+      )}
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -153,7 +150,7 @@ const ExportTab = () => {
             {memos.map((memo, i) => {
               const snippet = memo.content?.slice(0, 120) || "（空白）";
               const dateStr = memo.createTime
-                ? timestampDate(memo.createTime).toLocaleString("zh-CN", {
+                ? timestampDate(memo.createTime).toLocaleString(navigator.language, {
                     month: "short",
                     day: "numeric",
                     hour: "2-digit",
@@ -168,7 +165,7 @@ const ExportTab = () => {
                     selected.has(i) && "bg-accent/20",
                   )}
                 >
-                  <Checkbox checked={selected.has(i)} onCheckedChange={() => toggleOne(i)} className="mt-0.5" />
+                  <Checkbox checked={selected.has(i)} onCheckedChange={() => toggleOne(i)} className="mt-0.5" aria-label={`Select: ${snippet}`} />
                   <div className="min-w-0 text-sm">
                     <div className="truncate text-foreground">{snippet}</div>
                     <div className="text-xs text-muted-foreground">
@@ -179,7 +176,7 @@ const ExportTab = () => {
                         </span>
                       )}
                       {memo.tags?.length > 0 && memo.tags.map((t) => `#${t}`).join(" ")}
-                      {memo.tags?.length === 0 && "无标签"}
+                      {memo.tags?.length === 0 && "--"}
                       {" · "}
                       {memo.attachments?.length ?? 0} 个附件
                     </div>
@@ -190,12 +187,12 @@ const ExportTab = () => {
           </div>
 
           <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => doExport("markdown")} disabled={exporting || selected.size === 0}>
-              <FileTextIcon className="h-4 w-4" />
+            <Button variant="outline" onClick={() => doExport("markdown")} disabled={exportingFormat !== null || selected.size === 0}>
+              {exportingFormat === "markdown" ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <FileTextIcon className="h-4 w-4" />}
               导出 Markdown
             </Button>
-            <Button onClick={() => doExport("json")} disabled={exporting || selected.size === 0}>
-              {exporting ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <DownloadIcon className="h-4 w-4" />}
+            <Button variant="outline" onClick={() => doExport("json")} disabled={exportingFormat !== null || selected.size === 0}>
+              {exportingFormat === "json" ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <DownloadIcon className="h-4 w-4" />}
               导出 JSON
             </Button>
           </div>
@@ -265,7 +262,7 @@ const ImportTab = () => {
     [handleFile],
   );
 
-  const handleImport = async () => {
+  const handleImport = useCallback(async () => {
     if (!importDataCache) return;
 
     setStep("importing");
@@ -281,7 +278,7 @@ const ImportTab = () => {
       setError(err instanceof Error ? err.message : "Import failed");
       setStep("select");
     }
-  };
+  }, [importDataCache]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -301,7 +298,7 @@ const ImportTab = () => {
         <div
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
-          className="relative flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed border-border px-6 py-12 text-center transition-colors hover:border-muted-foreground/30"
+          className="relative flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed border-border px-6 py-12 text-center transition-colors hover:border-muted-foreground/30 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
         >
           <UploadIcon className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-medium text-foreground">拖拽 JSON 导出文件到此处</p>
@@ -369,20 +366,13 @@ const ImportTab = () => {
         <div className="flex flex-col gap-4">
           <div className="rounded-lg border border-border bg-background p-4">
             <h4 className="text-sm font-medium text-foreground">导入完成</h4>
-            <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-md bg-emerald-500/10 p-3">
                 <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                   <CheckCircleIcon className="h-3.5 w-3.5" />
                   成功
                 </div>
                 <div className="text-lg font-semibold text-foreground">{result.success}</div>
-              </div>
-              <div className="rounded-md bg-amber-500/10 p-3">
-                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                  <AlertTriangleIcon className="h-3.5 w-3.5" />
-                  跳过
-                </div>
-                <div className="text-lg font-semibold text-foreground">{result.skipped}</div>
               </div>
               <div className="rounded-md bg-red-500/10 p-3">
                 <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">

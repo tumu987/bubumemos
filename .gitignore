@@ -37,3 +37,8 @@ web/coverage/
 
 # Root-level node_modules (pnpm store may leak)
 node_modules/
+
+# SQLite database files (runtime-generated)
+*.db
+*.db-shm
+*.db-wal

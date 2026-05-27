@@ -1,12 +1,16 @@
-import { DownloadIcon } from "lucide-react";
-import { useState } from "react";
-import ImportExportDialog from "@/components/ImportExportDialog";
+import { DownloadIcon, UploadIcon } from "lucide-react";
+import { useCallback, useState } from "react";
+import ImportExportDialog, { type ImportExportTab } from "@/components/ImportExportDialog";
 import { Button } from "@/components/ui/button";
 import SettingGroup from "./SettingGroup";
 import SettingSection from "./SettingSection";
 
 const ImportExportSection = () => {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogState, setDialogState] = useState<{ open: boolean; tab: ImportExportTab }>({ open: false, tab: "export" });
+
+  const openExport = useCallback(() => setDialogState({ open: true, tab: "export" }), []);
+  const openImport = useCallback(() => setDialogState({ open: true, tab: "import" }), []);
+  const closeDialog = useCallback(() => setDialogState((s) => ({ ...s, open: false })), []);
 
   return (
     <>
@@ -20,15 +24,21 @@ const ImportExportSection = () => {
               <div className="text-sm font-medium text-foreground">管理你的数据</div>
               <div className="text-xs text-muted-foreground">导出为 JSON 或 Markdown，或从之前的导出中导入。</div>
             </div>
-            <Button onClick={() => setDialogOpen(true)} size="sm">
-              <DownloadIcon className="h-4 w-4" />
-              打开导入 / 导出
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button onClick={openExport} size="sm" variant="outline">
+                <DownloadIcon className="h-4 w-4" />
+                导出
+              </Button>
+              <Button onClick={openImport} size="sm" variant="outline">
+                <UploadIcon className="h-4 w-4" />
+                导入
+              </Button>
+            </div>
           </div>
         </SettingGroup>
       </SettingSection>
 
-      <ImportExportDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <ImportExportDialog open={dialogState.open} onOpenChange={closeDialog} initialTab={dialogState.tab} />
     </>
   );
 };

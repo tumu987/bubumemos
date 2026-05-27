@@ -32,7 +32,6 @@ interface ImportError {
 
 export interface ImportResult {
   success: number;
-  skipped: number;
   failed: number;
   errors: ImportError[];
 }
@@ -94,15 +93,17 @@ export function generateImportPreview(data: ExportData): ImportPreview {
 }
 
 export async function executeImport(data: ExportData, onProgress?: (current: number, total: number) => void): Promise<ImportResult> {
-  const result: ImportResult = { success: 0, skipped: 0, failed: 0, errors: [] };
+  const result: ImportResult = { success: 0, failed: 0, errors: [] };
   const total = data.memos.length;
 
   for (let i = 0; i < data.memos.length; i++) {
     const memoExport = data.memos[i];
     onProgress?.(i + 1, total);
 
+    let created: { name: string }[] = [];
     try {
-      const createdAttachments = await createAttachmentsFromExport(memoExport);
+      const { created: c, attachmentErrors } = await createAttachmentsFromExport(memoExport);
+      created = c;
 
       const visibility = parseVisibility(memoExport.visibility);
 
@@ -112,16 +113,23 @@ export async function executeImport(data: ExportData, onProgress?: (current: num
           visibility,
           tags: memoExport.tags ?? [],
           pinned: memoExport.pinned ?? false,
-          attachments: createdAttachments.map((a) => create(AttachmentSchema, { name: a.name })),
+          attachments: created.map((a) => create(AttachmentSchema, { name: a.name })),
         }),
       });
 
+      for (const attErr of attachmentErrors) {
+        result.errors.push({ index: i, content: attErr.filename, reason: attErr.reason });
+      }
       result.success++;
     } catch (err) {
       const snippet = (memoExport.content ?? "").slice(0, 80);
       const reason = err instanceof Error ? err.message : "Unknown error";
       result.failed++;
       result.errors.push({ index: i, content: snippet, reason });
+      if (created.length > 0) {
+        const names = created.map((a) => a.name).join(", ");
+        result.errors.push({ index: i, content: "", reason: `附件已创建但 memo 失败，可能需手动清理: ${names}` });
+      }
     }
   }
 
@@ -130,9 +138,10 @@ export async function executeImport(data: ExportData, onProgress?: (current: num
 
 async function createAttachmentsFromExport(memoExport: MemoExport) {
   const created: { name: string }[] = [];
+  const attachmentErrors: { filename: string; reason: string }[] = [];
 
   if (!memoExport.attachments) {
-    return created;
+    return { created, attachmentErrors };
   }
 
   for (const att of memoExport.attachments) {
@@ -148,11 +157,13 @@ async function createAttachmentsFromExport(memoExport: MemoExport) {
       });
       created.push({ name: attachment.name });
     } catch (err) {
+      const reason = err instanceof Error ? err.message : "Unknown error";
+      attachmentErrors.push({ filename: att.filename, reason: `附件: ${reason}` });
       console.warn(`Failed to create attachment "${att.filename}" during import:`, err);
     }
   }
 
-  return created;
+  return { created, attachmentErrors };
 }
 
 export function checkFileTooLarge(file: File): boolean {

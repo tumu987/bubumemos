@@ -1,9 +1,8 @@
-import { Maximize2, PauseIcon, PlayIcon, X } from "lucide-react";
+import { PauseIcon, PlayIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
-import { cn } from "@/lib/utils";
 import { formatFileSize, getFileTypeLabel } from "@/utils/format";
 import { formatAudioTime } from "./MemoMetadata/Attachment/attachmentHelpers";
 
@@ -20,6 +19,7 @@ interface AudioPlayerDialogProps {
 
 const AudioPlayerDialog = ({ open, onOpenChange, filename, sourceUrl, mimeType, size }: AudioPlayerDialogProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -38,7 +38,7 @@ const AudioPlayerDialog = ({ open, onOpenChange, filename, sourceUrl, mimeType, 
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === " " || e.code === "Space") {
+      if ((e.key === " " || e.code === "Space") && dialogRef.current?.contains(e.target as Node)) {
         e.preventDefault();
         const audio = audioRef.current;
         if (!audio) return;
@@ -72,7 +72,7 @@ const AudioPlayerDialog = ({ open, onOpenChange, filename, sourceUrl, mimeType, 
 
   const handleSeek = (value: number) => {
     const audio = audioRef.current;
-    if (!audio || Number.isNaN(value)) return;
+    if (!audio || !Number.isFinite(value)) return;
     audio.currentTime = value;
     setCurrentTime(value);
   };
@@ -89,6 +89,7 @@ const AudioPlayerDialog = ({ open, onOpenChange, filename, sourceUrl, mimeType, 
         className="!h-[100vh] !w-[100vw] !max-h-[100vh] !max-w-[100vw] overflow-hidden border-0 bg-black/92 p-0 shadow-none"
         aria-describedby="audio-player-description"
       >
+        <div ref={dialogRef}>
         <VisuallyHidden>
           <DialogTitle>{filename}</DialogTitle>
         </VisuallyHidden>
@@ -190,26 +191,10 @@ const AudioPlayerDialog = ({ open, onOpenChange, filename, sourceUrl, mimeType, 
         <div id="audio-player-description" className="sr-only">
           Audio player dialog for {filename}
         </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
 };
 
 export default AudioPlayerDialog;
-
-export const AudioExpandButton = ({ onClick, className }: { onClick: () => void; className?: string }) => (
-  <button
-    type="button"
-    onClick={(e) => {
-      e.stopPropagation();
-      onClick();
-    }}
-    className={cn(
-      "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-      className,
-    )}
-    aria-label="Open full-screen player"
-  >
-    <Maximize2 className="h-3 w-3" />
-  </button>
-);

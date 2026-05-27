@@ -555,7 +555,6 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
                 controls
                 autoPlay
                 playsInline
-                disablePictureInPicture
               />
             </div>
           ) : currentItem.kind === "motion" ? (

@@ -122,7 +122,7 @@ function downloadBlob(content: string | Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function memoToMarkdown(memo: MemoExport): string {
+function memoToMarkdown(memo: MemoExport, attachmentNames: string[]): string {
   const lines: string[] = [];
 
   if (memo.tags.length > 0) {
@@ -139,11 +139,12 @@ function memoToMarkdown(memo: MemoExport): string {
 
   if (memo.attachments.length > 0) {
     lines.push("");
-    lines.push("---");
-    lines.push("");
-    lines.push("Attachments:");
-    for (const att of memo.attachments) {
-      lines.push(`- ${att.filename} (${att.type}, ${att.size} bytes)`);
+    for (let i = 0; i < memo.attachments.length; i++) {
+      const uniqueName = attachmentNames[i];
+      if (!uniqueName) continue; // attachment failed to decode — skip markdown reference
+      const att = memo.attachments[i];
+      const isEmbeddable = att.type.startsWith("image/") || att.type.startsWith("video/") || att.type.startsWith("audio/");
+      lines.push(isEmbeddable ? `![[attachments/${uniqueName}]]` : `[[attachments/${uniqueName}]]`);
     }
   }
 
@@ -162,26 +163,38 @@ export async function exportMemosAsJson(memos: Memo[]): Promise<void> {
 
 export async function exportMemosAsMarkdown(memos: Memo[]): Promise<void> {
   const exportData = await buildExportData(memos);
-  const markdown = exportData.memos.map(memoToMarkdown).join("\n\n");
   const date = new Date().toISOString().slice(0, 10);
 
-  const entries: ZipEntry[] = [{ path: "memos.md", data: new TextEncoder().encode(markdown) }];
+  const entries: ZipEntry[] = [];
+  const nameCounts = new Map<string, number>();
+  const markdownParts: string[] = [];
 
-  // Collect attachments, deduplicating filenames
-  const attachmentNames = new Map<string, number>();
+  // Single pass: deduplicate attachment names for both markdown refs and ZIP paths.
   for (const memo of exportData.memos) {
+    const attachmentUniqueNames: string[] = [];
     for (const att of memo.attachments) {
-      const count = attachmentNames.get(att.filename) ?? 0;
-      attachmentNames.set(att.filename, count + 1);
-      const uniqueName = count > 0 ? att.filename.replace(/(\.[^.]+)$/, `_${count}$1`) : att.filename;
+      const count = nameCounts.get(att.filename) ?? 0;
+      nameCounts.set(att.filename, count + 1);
+      const uniqueName =
+        count > 0
+          ? att.filename.includes(".")
+            ? att.filename.replace(/(\.[^.]+)$/, `_${count}$1`)
+            : `${att.filename}_${count}`
+          : att.filename;
       try {
         const bytes = base64ToBytes(att.data);
         entries.push({ path: `attachments/${uniqueName}`, data: bytes });
+        attachmentUniqueNames.push(uniqueName);
       } catch (err) {
         console.warn(`Failed to decode attachment "${att.filename}" for ZIP export:`, err);
+        attachmentUniqueNames.push(""); // marker so indices stay aligned; markdown skips empty names
       }
     }
+    markdownParts.push(memoToMarkdown(memo, attachmentUniqueNames));
   }
+
+  const markdown = markdownParts.join("\n\n");
+  entries.unshift({ path: "memos.md", data: new TextEncoder().encode(markdown) });
 
   const zip = createZip(entries);
   downloadBlob(zip, `memos-export-${date}.zip`);

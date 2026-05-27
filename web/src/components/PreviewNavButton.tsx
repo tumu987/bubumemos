@@ -26,5 +26,4 @@ const PreviewNavButton = ({ side, disabled, label, onClick, icon }: PreviewNavBu
   </Button>
 );
 
-export type { PreviewNavButtonProps };
 export default PreviewNavButton;

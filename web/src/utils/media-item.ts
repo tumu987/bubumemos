@@ -127,7 +127,7 @@ function buildSingleAttachmentItem(attachment: Attachment): AttachmentVisualItem
 
   return {
     id: attachment.name,
-    kind: attachmentType === "video/*" ? "video" : attachmentType === "application/pdf" ? "pdf" : "image",
+    kind: previewKind,
     filename: attachment.filename,
     posterUrl,
     sourceUrl,

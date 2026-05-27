@@ -1,3 +1,16 @@
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+WORKDIR /build
+
+# Install pnpm
+RUN npm install -g pnpm@11.0.1
+
+# Copy frontend files
+COPY web/package.json web/pnpm-lock.yaml web/
+RUN cd web && pnpm install --frozen-lockfile
+
+COPY web/ web/
+RUN cd web && pnpm release
+
 FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine AS backend
 WORKDIR /backend-build
 
@@ -11,6 +24,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Copy source code (use .dockerignore to exclude unnecessary files)
 COPY . .
+
+# Copy frontend build output
+COPY --from=frontend /build/server/router/frontend/dist /backend-build/server/router/frontend/dist
 
 # Please build frontend first, so that the static files are available.
 # Refer to `pnpm release` in package.json for the build command.
