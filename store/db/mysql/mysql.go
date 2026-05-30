@@ -48,6 +48,12 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
+// RunInTransaction executes fn within a database transaction.
+// Currently a no-op for MySQL; transactional support can be added later.
+func (d *DB) RunInTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
+
 func (d *DB) IsInitialized(ctx context.Context) (bool, error) {
 	var exists bool
 	err := d.db.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'memo' AND TABLE_TYPE = 'BASE TABLE')").Scan(&exists)

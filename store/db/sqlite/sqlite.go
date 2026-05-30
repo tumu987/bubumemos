@@ -64,6 +64,35 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
+// RunInTransaction executes fn within a database transaction.
+func (d *DB) RunInTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	tx, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
+	txCtx := store.WithTxContext(ctx, tx)
+	if err := fn(txCtx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+// dbExecutor is satisfied by both *sql.DB and *sql.Tx.
+type dbExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// getExecutor returns the transaction from context if present, otherwise the pool.
+func (d *DB) getExecutor(ctx context.Context) dbExecutor {
+	if tx := store.TxFromContext(ctx); tx != nil {
+		return tx
+	}
+	return d.db
+}
+
 func (d *DB) IsInitialized(ctx context.Context) (bool, error) {
 	// Check if the database is initialized by checking if the memo table exists.
 	var exists bool

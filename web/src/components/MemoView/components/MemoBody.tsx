@@ -33,7 +33,18 @@ const getContentRevision = (content: string) => {
 };
 
 const MemoBody: React.FC<MemoBodyProps> = ({ compact }) => {
-  const { memo, parentPage, showBlurredContent, blurred, readonly, openEditor, openPreview, toggleBlurVisibility } = useMemoViewContext();
+  const {
+    memo,
+    parentPage,
+    showBlurredContent,
+    blurred,
+    readonly,
+    openEditor,
+    openPreview,
+    openPdfPreview,
+    openMdPreview,
+    toggleBlurVisibility,
+  } = useMemoViewContext();
 
   const { handleMemoContentClick, handleMemoContentDoubleClick } = useMemoHandlers({ readonly, openEditor, openPreview });
 
@@ -55,7 +66,12 @@ const MemoBody: React.FC<MemoBodyProps> = ({ compact }) => {
           onDoubleClick={handleMemoContentDoubleClick}
           compact={memo.pinned ? false : compact} // Always show full content when pinned
         />
-        <AttachmentListView attachments={memo.attachments} onImagePreview={openPreview} />
+        <AttachmentListView
+          attachments={memo.attachments}
+          onImagePreview={openPreview}
+          onPdfPreview={openPdfPreview}
+          onMdPreview={openMdPreview}
+        />
         <RelationListView relations={referencedMemos} currentMemoName={memo.name} parentPage={parentPage} />
         {memo.location && <LocationDisplayView location={memo.location} />}
         <MemoReactionListView memo={memo} reactions={memo.reactions} />

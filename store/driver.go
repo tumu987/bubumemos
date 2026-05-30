@@ -81,4 +81,8 @@ type Driver interface {
 	CreateUserIdentity(ctx context.Context, create *UserIdentity) (*UserIdentity, error)
 	ListUserIdentities(ctx context.Context, find *FindUserIdentity) ([]*UserIdentity, error)
 	DeleteUserIdentities(ctx context.Context, delete *DeleteUserIdentity) error
+
+	// RunInTransaction executes fn within a database transaction.
+	// If the driver does not support transactions, fn is called directly.
+	RunInTransaction(ctx context.Context, fn func(ctx context.Context) error) error
 }

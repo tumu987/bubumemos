@@ -70,6 +70,7 @@ type Cache struct {
 	config     Config
 	stopChan   chan struct{}
 	closedChan chan struct{}
+	closeOnce  sync.Once
 }
 
 // New creates a new memory cache with the given configuration.
@@ -185,15 +186,11 @@ func (c *Cache) Size() int64 {
 
 // Close stops the cache cleanup goroutine.
 func (c *Cache) Close() error {
-	select {
-	case <-c.stopChan:
-		// Already closed
-		return nil
-	default:
+	c.closeOnce.Do(func() {
 		close(c.stopChan)
 		<-c.closedChan // Wait for cleanup goroutine to exit
-		return nil
-	}
+	})
+	return nil
 }
 
 // cleanupLoop periodically cleans up expired items.

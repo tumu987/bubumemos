@@ -148,7 +148,7 @@ func (d *DB) DeleteMemoRelation(ctx context.Context, delete *store.DeleteMemoRel
 	stmt := `
 		DELETE FROM memo_relation
 		WHERE ` + strings.Join(where, " AND ")
-	result, err := d.db.ExecContext(ctx, stmt, args...)
+	result, err := d.getExecutor(ctx).ExecContext(ctx, stmt, args...)
 	if err != nil {
 		return err
 	}

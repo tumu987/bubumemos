@@ -35,16 +35,22 @@ const STUB_CONTEXT: MemoViewContextValue = {
   openEditor: () => {},
   toggleBlurVisibility: () => {},
   openPreview: () => {},
+  openPdfPreview: () => {},
+  openMdPreview: () => {},
 };
 
 const AttachmentThumbnails = ({ attachments }: { attachments: Attachment[] }) => {
   const visualAttachments = attachments.filter(
     (attachment) =>
-      getAttachmentType(attachment) === "image/*" || getAttachmentType(attachment) === "video/*" || isMotionAttachment(attachment),
+      getAttachmentType(attachment) === "image/*" ||
+      getAttachmentType(attachment) === "video/*" ||
+      getAttachmentType(attachment) === "application/pdf" ||
+      getAttachmentType(attachment) === "text/markdown" ||
+      isMotionAttachment(attachment),
   );
   const items = buildAttachmentVisualItems(visualAttachments);
   const images = items.filter((item) => item.kind === "image" || item.kind === "motion");
-  const others = items.filter((item) => item.kind === "video");
+  const others = items.filter((item) => item.kind === "video" || item.kind === "pdf" || item.kind === "md");
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">

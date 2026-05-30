@@ -2,6 +2,7 @@ import {
   BarChart3Icon,
   CogIcon,
   DatabaseIcon,
+  DownloadIcon,
   HeartHandshakeIcon,
   KeyIcon,
   LibraryIcon,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { type ComponentType } from "react";
 import AISection from "@/components/Settings/AISection";
+import ImportExportSection from "@/components/Settings/ImportExportSection";
 import InstanceSection from "@/components/Settings/InstanceSection";
 import MemberSection from "@/components/Settings/MemberSection";
 import MemoRelatedSettings from "@/components/Settings/MemoRelatedSettings";
@@ -32,6 +34,7 @@ export type SettingSectionKey =
   | "my-account"
   | "preference"
   | "webhook"
+  | "import-export"
   | "member"
   | "system"
   | "memo"
@@ -74,6 +77,13 @@ export const SETTINGS_SECTIONS: SettingSectionDefinition[] = [
     labelKey: "setting.webhook.label",
     icon: WebhookIcon,
     component: WebhookSection,
+  },
+  {
+    key: "import-export",
+    scope: "basic",
+    labelKey: "setting.import-export.label",
+    icon: DownloadIcon,
+    component: ImportExportSection,
   },
   {
     key: "member",

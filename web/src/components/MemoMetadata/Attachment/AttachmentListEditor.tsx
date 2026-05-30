@@ -102,7 +102,7 @@ const AttachmentItemCard: FC<{
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const fileTypeLabel = item.category === "motion" ? "Live Photo" : getFileTypeLabel(mimeType);
-  const isPreviewable = category === "image" || category === "video" || category === "motion";
+  const isPreviewable = category === "image" || category === "video" || category === "motion" || category === "pdf" || category === "md";
   const recordingTimeLabel = isVoiceNote ? getAudioRecordingTimeLabel(filename) : undefined;
   const titleLabel =
     isVoiceNote && recordingTimeLabel
@@ -249,6 +249,16 @@ const AttachmentListEditor: FC<AttachmentListEditorProps> = ({
 
         if (item.category === "motion") {
           acc.push({ id: item.id, kind: "motion", motionUrl: item.sourceUrl, posterUrl: item.thumbnailUrl, filename: item.filename });
+          return acc;
+        }
+
+        if (item.category === "pdf") {
+          acc.push({ id: item.id, kind: "pdf", sourceUrl: item.sourceUrl, filename: item.filename });
+          return acc;
+        }
+
+        if (item.category === "md") {
+          acc.push({ id: item.id, kind: "md", sourceUrl: item.sourceUrl, filename: item.filename });
           return acc;
         }
 

@@ -1,4 +1,4 @@
-import { PauseIcon, PlayIcon } from "lucide-react";
+import { Maximize2, PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatFileSize, getFileTypeLabel } from "@/utils/format";
@@ -59,9 +59,19 @@ interface AudioAttachmentItemProps {
   title?: string;
   compact?: boolean;
   className?: string;
+  onExpand?: () => void;
 }
 
-const AudioAttachmentItem = ({ filename, sourceUrl, mimeType, size, title, compact = false, className }: AudioAttachmentItemProps) => {
+const AudioAttachmentItem = ({
+  filename,
+  sourceUrl,
+  mimeType,
+  size,
+  title,
+  compact = false,
+  className,
+  onExpand,
+}: AudioAttachmentItemProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -165,6 +175,20 @@ const AudioAttachmentItem = ({ filename, sourceUrl, mimeType, size, title, compa
           >
             {playbackRate}x
           </button>
+
+          {onExpand && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExpand();
+              }}
+              className="inline-flex h-5 shrink-0 items-center justify-center rounded-md border border-transparent px-1 text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground"
+              aria-label={`Open ${displayTitle} in full screen`}
+            >
+              <Maximize2 className="size-3" />
+            </button>
+          )}
         </div>
       </div>
 

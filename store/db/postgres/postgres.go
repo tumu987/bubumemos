@@ -47,6 +47,12 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
+// RunInTransaction executes fn within a database transaction.
+// Currently a no-op for Postgres; transactional support can be added later.
+func (d *DB) RunInTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
+
 func (d *DB) IsInitialized(ctx context.Context) (bool, error) {
 	var exists bool
 	err := d.db.QueryRowContext(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_catalog = current_database() AND table_name = 'memo' AND table_type = 'BASE TABLE')").Scan(&exists)

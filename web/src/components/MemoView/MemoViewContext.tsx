@@ -5,7 +5,7 @@ import { useView } from "@/contexts/ViewContext";
 import type { Memo } from "@/types/proto/api/v1/memo_service_pb";
 import { MemoRelation_Type } from "@/types/proto/api/v1/memo_service_pb";
 import type { User } from "@/types/proto/api/v1/user_service_pb";
-import type { PreviewMediaItem } from "@/utils/media-item";
+import type { MdPreviewMediaItem, PdfPreviewMediaItem, PreviewMediaItem } from "@/utils/media-item";
 import { RELATIVE_TIME_THRESHOLD_MS } from "./constants";
 
 export interface MemoViewContextValue {
@@ -21,6 +21,8 @@ export interface MemoViewContextValue {
   openEditor: () => void;
   toggleBlurVisibility: () => void;
   openPreview: (items: string | string[] | PreviewMediaItem[], index?: number) => void;
+  openPdfPreview: (items: PdfPreviewMediaItem[], index?: number) => void;
+  openMdPreview: (items: MdPreviewMediaItem[], index?: number) => void;
 }
 
 export const MemoViewContext = createContext<MemoViewContextValue | null>(null);

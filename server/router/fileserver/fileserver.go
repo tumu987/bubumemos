@@ -244,7 +244,11 @@ func (s *FileServerService) serveStaticFile(c *echo.Context, attachment *store.A
 		}
 	}
 
-	setSecurityHeaders(c)
+	if contentType == "application/pdf" {
+		setPdfHeaders(c)
+	} else {
+		setSecurityHeaders(c)
+	}
 	setMediaHeaders(c, contentType, attachment.Type)
 
 	// Force download for non-media files to prevent XSS execution.
@@ -325,9 +329,14 @@ func (s *FileServerService) getAttachmentReader(ctx context.Context, attachment 
 
 // resolveLocalPath converts a storage reference to an absolute file path.
 func (s *FileServerService) resolveLocalPath(reference string) (string, error) {
+	basePath := filepath.Clean(s.Profile.Data)
 	filePath := filepath.FromSlash(reference)
 	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(s.Profile.Data, filePath)
+		filePath = filepath.Join(basePath, filePath)
+	}
+	filePath = filepath.Clean(filePath)
+	if !strings.HasPrefix(filePath, basePath+string(filepath.Separator)) && filePath != basePath {
+		return "", errors.New("path traversal detected")
 	}
 	return filePath, nil
 }
@@ -743,6 +752,15 @@ func setSecurityHeaders(c *echo.Context) {
 	h := c.Response().Header()
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("X-Frame-Options", "DENY")
+	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline';")
+}
+
+// setPdfHeaders sets security headers for PDF files.
+// Unlike regular static files, PDFs are served without X-Frame-Options
+// to allow iframe embedding for inline preview.
+func setPdfHeaders(c *echo.Context) {
+	h := c.Response().Header()
+	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline';")
 }
 

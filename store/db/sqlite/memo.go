@@ -237,7 +237,7 @@ func (d *DB) UpdateMemo(ctx context.Context, update *store.UpdateMemo) error {
 func (d *DB) DeleteMemo(ctx context.Context, delete *store.DeleteMemo) error {
 	where, args := []string{"`id` = ?"}, []any{delete.ID}
 	stmt := "DELETE FROM `memo` WHERE " + strings.Join(where, " AND ")
-	result, err := d.db.ExecContext(ctx, stmt, args...)
+	result, err := d.getExecutor(ctx).ExecContext(ctx, stmt, args...)
 	if err != nil {
 		return err
 	}

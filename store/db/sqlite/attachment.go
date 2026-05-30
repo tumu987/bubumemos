@@ -117,7 +117,7 @@ func (d *DB) ListAttachments(ctx context.Context, find *store.FindAttachment) ([
 		}
 	}
 
-	rows, err := d.db.QueryContext(ctx, query, args...)
+	rows, err := d.getExecutor(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (d *DB) UpdateAttachment(ctx context.Context, update *store.UpdateAttachmen
 
 func (d *DB) DeleteAttachment(ctx context.Context, delete *store.DeleteAttachment) error {
 	stmt := "DELETE FROM `attachment` WHERE `id` = ?"
-	result, err := d.db.ExecContext(ctx, stmt, delete.ID)
+	result, err := d.getExecutor(ctx).ExecContext(ctx, stmt, delete.ID)
 	if err != nil {
 		return err
 	}

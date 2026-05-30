@@ -3,7 +3,7 @@ import { MotionMediaFamily, MotionMediaRole } from "@/types/proto/api/v1/attachm
 import { getAttachmentThumbnailUrl, getAttachmentType, getAttachmentUrl } from "@/utils/attachment";
 import { buildAttachmentVisualItems } from "@/utils/media-item";
 
-export type FileCategory = "image" | "video" | "motion" | "audio" | "document";
+export type FileCategory = "image" | "video" | "motion" | "audio" | "document" | "pdf" | "md";
 
 export interface AttachmentItem {
   readonly id: string;
@@ -51,11 +51,15 @@ export const getAudioRecordingTimeLabel = (filename: string): string | undefined
   return undefined;
 };
 
-function categorizeFile(mimeType: string, motionMedia?: MotionMedia): FileCategory {
+function categorizeFile(mimeType: string, motionMedia?: MotionMedia, filename?: string): FileCategory {
   if (motionMedia) return "motion";
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType === "application/pdf") return "pdf";
+  if (mimeType === "text/markdown" || mimeType === "text/x-markdown") return "md";
+  // Known Bug#17: .md files may arrive as text/plain
+  if (mimeType === "text/plain" && filename?.endsWith(".md")) return "md";
   return "document";
 }
 
@@ -67,7 +71,7 @@ function attachmentGroupToItem(attachment: Attachment): AttachmentItem {
     id: attachment.name,
     memberIds: [attachment.name],
     filename: attachment.filename,
-    category: categorizeFile(attachment.type),
+    category: categorizeFile(attachment.type, undefined, attachment.filename),
     mimeType: attachment.type,
     thumbnailUrl: attachmentType === "image/*" ? getAttachmentThumbnailUrl(attachment) : sourceUrl,
     sourceUrl,
@@ -99,7 +103,7 @@ function fileToItem(file: LocalFile): AttachmentItem {
     id: file.motionMedia?.groupId || file.previewUrl,
     memberIds: [file.previewUrl],
     filename: file.file.name,
-    category: categorizeFile(file.file.type, file.motionMedia),
+    category: categorizeFile(file.file.type, file.motionMedia, file.file.name),
     mimeType: file.file.type,
     thumbnailUrl: file.previewUrl,
     sourceUrl: file.previewUrl,
@@ -162,7 +166,13 @@ function toLocalMotionItems(localFiles: LocalFile[]): AttachmentItem[] {
 export function toAttachmentItems(attachments: Attachment[], localFiles: LocalFile[] = []): AttachmentItem[] {
   const visualAttachments = attachments.filter((attachment) => {
     const attachmentType = getAttachmentType(attachment);
-    return attachmentType === "image/*" || attachmentType === "video/*" || attachment.motionMedia !== undefined;
+    return (
+      attachmentType === "image/*" ||
+      attachmentType === "video/*" ||
+      attachmentType === "application/pdf" ||
+      attachmentType === "text/markdown" ||
+      attachment.motionMedia !== undefined
+    );
   });
   const attachmentVisualIds = new Set<string>();
   const attachmentVisualItems = buildAttachmentVisualItems(visualAttachments).map((item) => {
@@ -188,7 +198,13 @@ export function separateMediaAndDocs(items: AttachmentItem[]): { media: Attachme
   const docs: AttachmentItem[] = [];
 
   for (const item of items) {
-    if (item.category === "image" || item.category === "video" || item.category === "motion") {
+    if (
+      item.category === "image" ||
+      item.category === "video" ||
+      item.category === "motion" ||
+      item.category === "pdf" ||
+      item.category === "md"
+    ) {
       media.push(item);
     } else {
       docs.push(item);

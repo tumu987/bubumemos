@@ -6,9 +6,12 @@ import { useUser } from "@/hooks/useUserQueries";
 import { findTagMetadata } from "@/lib/tag";
 import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
+import type { MdPreviewMediaItem, PdfPreviewMediaItem } from "@/utils/media-item";
 import { isSuperUser } from "@/utils/user";
+import MdPreviewDialog from "../MdPreviewDialog";
 import MemoShareImageDialog from "../MemoActionMenu/MemoShareImageDialog";
 import MemoEditor from "../MemoEditor";
+import PdfPreviewDialog from "../PdfPreviewDialog";
 import PreviewImageDialog from "../PreviewImageDialog";
 import { MemoBody, MemoCommentListView, MemoHeader } from "./components";
 import { MEMO_CARD_BASE_CLASSES } from "./constants";
@@ -35,6 +38,33 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
   const toggleBlurVisibility = useCallback(() => setShowBlurredContent((prev) => !prev), []);
 
   const { previewState, openPreview, setPreviewOpen } = useImagePreview();
+
+  const [pdfPreviewState, setPdfPreviewState] = useState<{ open: boolean; items: PdfPreviewMediaItem[]; index: number }>({
+    open: false,
+    items: [],
+    index: 0,
+  });
+  const [mdPreviewState, setMdPreviewState] = useState<{ open: boolean; items: MdPreviewMediaItem[]; index: number }>({
+    open: false,
+    items: [],
+    index: 0,
+  });
+
+  const openPdfPreview = useCallback((items: PdfPreviewMediaItem[], index = 0) => {
+    setPdfPreviewState({ open: true, items, index });
+  }, []);
+
+  const openMdPreview = useCallback((items: MdPreviewMediaItem[], index = 0) => {
+    setMdPreviewState({ open: true, items, index });
+  }, []);
+
+  const setPdfPreviewOpen = useCallback((open: boolean) => {
+    setPdfPreviewState((prev) => ({ ...prev, open }));
+  }, []);
+
+  const setMdPreviewOpen = useCallback((open: boolean) => {
+    setMdPreviewState((prev) => ({ ...prev, open }));
+  }, []);
 
   const openEditor = useCallback(() => setShowEditor(true), []);
   const closeEditor = useCallback(() => setShowEditor(false), []);
@@ -84,6 +114,8 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
       openEditor,
       toggleBlurVisibility,
       openPreview,
+      openPdfPreview,
+      openMdPreview,
     }),
     [
       memoData,
@@ -98,6 +130,8 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
       openEditor,
       toggleBlurVisibility,
       openPreview,
+      openPdfPreview,
+      openMdPreview,
     ],
   );
 
@@ -130,6 +164,20 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
         onOpenChange={setPreviewOpen}
         items={previewState.items}
         initialIndex={previewState.index}
+      />
+
+      <PdfPreviewDialog
+        open={pdfPreviewState.open}
+        onOpenChange={setPdfPreviewOpen}
+        items={pdfPreviewState.items}
+        initialIndex={pdfPreviewState.index}
+      />
+
+      <MdPreviewDialog
+        open={mdPreviewState.open}
+        onOpenChange={setMdPreviewOpen}
+        items={mdPreviewState.items}
+        initialIndex={mdPreviewState.index}
       />
 
       {props.onShareImageDialogOpenChange && (

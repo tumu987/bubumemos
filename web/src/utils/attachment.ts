@@ -23,6 +23,11 @@ export const getAttachmentType = (attachment: Attachment) => {
     return "video/*";
   } else if (attachment.type.startsWith("audio") && !isMidiFile(attachment.type)) {
     return "audio/*";
+  } else if (attachment.type === "text/markdown" || attachment.type === "text/x-markdown") {
+    return "text/markdown";
+  } else if (attachment.filename?.endsWith(".md")) {
+    // Known Bug#17: .md files may arrive as text/plain
+    return "text/markdown";
   } else if (attachment.type.startsWith("text")) {
     return "text/*";
   } else if (attachment.type.startsWith("application/epub+zip")) {

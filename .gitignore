@@ -31,3 +31,16 @@ dist
 
 # Frontend test coverage output (Vitest + @vitest/coverage-v8).
 web/coverage/
+
+# Vite cache
+.vite
+
+# Node modules (project-scoped)
+node_modules/
+
+# Runtime data — local storage, thumbnails, database
+assets/
+.thumbnail_cache/
+*.db
+*.db-shm
+*.db-wal

@@ -1,4 +1,4 @@
-import { DownloadIcon, FileIcon, PaperclipIcon, PlayIcon } from "lucide-react";
+import { DownloadIcon, FileIcon, PaperclipIcon } from "lucide-react";
 import type { PropsWithChildren } from "react";
 import { useMemo } from "react";
 import MetadataSection from "@/components/MemoMetadata/MetadataSection";
@@ -6,12 +6,11 @@ import MotionPhotoPreview from "@/components/MotionPhotoPreview";
 import { cn } from "@/lib/utils";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
 import { getAttachmentUrl } from "@/utils/attachment";
-import type { AttachmentVisualItem, PreviewMediaItem } from "@/utils/media-item";
+import type { AttachmentVisualItem, MdPreviewMediaItem, PdfPreviewMediaItem, PreviewMediaItem } from "@/utils/media-item";
 import { buildAttachmentVisualItems } from "@/utils/media-item";
 import AudioAttachmentItem from "./AudioAttachmentItem";
 import { getAttachmentMetadata, isAudioAttachment, separateAttachments } from "./attachmentHelpers";
 import {
-  COLLAGE_VIDEO_PLAY_BADGE_CLASS,
   COVER_MEDIA_CLASS,
   MEDIA_HOVER_GRADIENT_CLASS,
   MEDIA_HOVER_SURFACE_CLASS,
@@ -21,11 +20,15 @@ import {
   SINGLE_VIDEO_CARD_WIDTH_CLASS,
   VISUAL_TILE_BUTTON_CLASS,
 } from "./attachmentVisualClasses";
+import MdCard from "./MdCard";
+import PdfCard from "./PdfCard";
 import { resolveVisualGalleryLayout } from "./visualGalleryLayout";
 
 interface AttachmentListViewProps {
   attachments: Attachment[];
   onImagePreview?: (items: PreviewMediaItem[], index: number) => void;
+  onPdfPreview?: (items: PdfPreviewMediaItem[], index: number) => void;
+  onMdPreview?: (items: MdPreviewMediaItem[], index: number) => void;
 }
 
 type VisualItem = AttachmentVisualItem;
@@ -87,17 +90,6 @@ const VisualTile = ({
   );
 };
 
-const VideoPlayBadge = ({ className, children }: PropsWithChildren<{ className?: string }>) => (
-  <span
-    className={cn(
-      "pointer-events-none absolute inline-flex items-center justify-center rounded-full bg-background/85 text-foreground shadow-sm backdrop-blur-sm",
-      className,
-    )}
-  >
-    {children}
-  </span>
-);
-
 const CollageVisualItem = ({
   item,
   onPreview,
@@ -114,14 +106,16 @@ const CollageVisualItem = ({
   return (
     <VisualTile className={cn("block h-full w-full", className)} onPreview={onPreview} overlayLabel={overlayLabel}>
       {item.kind === "video" ? (
-        <>
-          <video src={item.sourceUrl} className={COVER_MEDIA_CLASS} preload="metadata" />
-          {!overlayLabel && (
-            <VideoPlayBadge className={COLLAGE_VIDEO_PLAY_BADGE_CLASS}>
-              <PlayIcon className="h-3.5 w-3.5 fill-current" />
-            </VideoPlayBadge>
-          )}
-        </>
+        <video
+          src={item.sourceUrl}
+          className={cn(COVER_MEDIA_CLASS, "object-contain")}
+          controls
+          preload="metadata"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.currentTarget.requestFullscreen?.();
+          }}
+        />
       ) : item.kind === "motion" && motionPreviewProps ? (
         <MotionPhotoPreview
           posterUrl={item.posterUrl}
@@ -132,6 +126,14 @@ const CollageVisualItem = ({
           badgeClassName="left-2 top-2 px-2 py-0.5 text-[10px]"
           mediaClassName={COVER_MEDIA_CLASS}
         />
+      ) : item.kind === "pdf" ? (
+        <div className={cn(COVER_MEDIA_CLASS, "flex items-center justify-center")}>
+          <PdfCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+        </div>
+      ) : item.kind === "md" ? (
+        <div className={cn(COVER_MEDIA_CLASS, "flex items-center justify-center")}>
+          <MdCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+        </div>
       ) : (
         <img src={item.posterUrl} alt={item.filename} className={COVER_MEDIA_CLASS} loading="lazy" decoding="async" />
       )}
@@ -167,17 +169,42 @@ const SingleVisualItem = ({ item, onPreview }: { item: VisualItem; onPreview?: (
     );
   }
 
-  return (
-    <VisualTile className={cn("block", SINGLE_VIDEO_CARD_WIDTH_CLASS)} onPreview={onPreview}>
-      <div className="relative aspect-video bg-black/5">
-        <video src={item.sourceUrl} poster={item.posterUrl} className={COVER_MEDIA_CLASS} preload="metadata" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-transparent" />
-        <VideoPlayBadge className="bottom-3 right-3 h-9 w-9">
-          <PlayIcon className="h-4 w-4 fill-current" />
-        </VideoPlayBadge>
-      </div>
-    </VisualTile>
-  );
+  if (item.kind === "video") {
+    return (
+      <VisualTile className={cn("block", SINGLE_VIDEO_CARD_WIDTH_CLASS)} onPreview={onPreview}>
+        <div className="relative aspect-video bg-black/5">
+          <video
+            src={item.sourceUrl}
+            className={cn(COVER_MEDIA_CLASS, "object-contain")}
+            controls
+            preload="metadata"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.currentTarget.requestFullscreen?.();
+            }}
+          />
+        </div>
+      </VisualTile>
+    );
+  }
+
+  if (item.kind === "pdf") {
+    return (
+      <VisualTile className="block max-w-full" onPreview={onPreview}>
+        <PdfCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+      </VisualTile>
+    );
+  }
+
+  if (item.kind === "md") {
+    return (
+      <VisualTile className="block max-w-full" onPreview={onPreview}>
+        <MdCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+      </VisualTile>
+    );
+  }
+
+  return null;
 };
 
 const VisualGallery = ({ items, onPreview }: { items: VisualItem[]; onPreview?: (itemId: string) => void }) => {
@@ -210,7 +237,15 @@ const VisualGallery = ({ items, onPreview }: { items: VisualItem[]; onPreview?: 
   );
 };
 
-const AudioList = ({ attachments, compact = false }: { attachments: Attachment[]; compact?: boolean }) => (
+const AudioList = ({
+  attachments,
+  compact = false,
+  onExpand,
+}: {
+  attachments: Attachment[];
+  compact?: boolean;
+  onExpand?: (sourceUrl: string, filename: string, mimeType: string) => void;
+}) => (
   <div className={cn("gap-2", compact ? "grid grid-cols-1 sm:grid-cols-2" : "flex flex-col")}>
     {attachments.map((attachment) => (
       <AudioAttachmentItem
@@ -220,6 +255,7 @@ const AudioList = ({ attachments, compact = false }: { attachments: Attachment[]
         mimeType={attachment.type}
         size={Number(attachment.size)}
         compact={compact}
+        onExpand={onExpand ? () => onExpand(getAttachmentUrl(attachment), attachment.filename, attachment.type) : undefined}
       />
     ))}
   </div>
@@ -237,7 +273,7 @@ const DocsList = ({ attachments }: { attachments: Attachment[] }) => (
 
 const Divider = () => <div className="border-t border-border/70 opacity-80" />;
 
-const AttachmentListView = ({ attachments, onImagePreview }: AttachmentListViewProps) => {
+const AttachmentListView = ({ attachments, onImagePreview, onPdfPreview, onMdPreview }: AttachmentListViewProps) => {
   const { visual, audio, docs } = useMemo(() => separateAttachments(attachments), [attachments]);
   const visualItems = useMemo(() => buildAttachmentVisualItems(visual), [visual]);
   const previewItems = useMemo(() => visualItems.map((item) => item.previewItem), [visualItems]);
@@ -251,8 +287,22 @@ const AttachmentListView = ({ attachments, onImagePreview }: AttachmentListViewP
   }
 
   const handlePreview = (itemId: string) => {
-    const index = previewItems.findIndex((item) => item.id === itemId);
-    onImagePreview?.(previewItems, index >= 0 ? index : 0);
+    const visualItem = visualItems.find((item) => item.id === itemId);
+    if (visualItem?.kind === "pdf") {
+      const pdfItems = previewItems.filter((item): item is PdfPreviewMediaItem => item.kind === "pdf");
+      const index = pdfItems.findIndex((item) => item.id === itemId);
+      onPdfPreview?.(pdfItems, index >= 0 ? index : 0);
+      return;
+    }
+    if (visualItem?.kind === "md") {
+      const mdItems = previewItems.filter((item): item is MdPreviewMediaItem => item.kind === "md");
+      const index = mdItems.findIndex((item) => item.id === itemId);
+      onMdPreview?.(mdItems, index >= 0 ? index : 0);
+      return;
+    }
+    const mediaOnly = previewItems.filter((item) => item.kind !== "pdf" && item.kind !== "md");
+    const index = mediaOnly.findIndex((item) => item.id === itemId);
+    onImagePreview?.(mediaOnly, index >= 0 ? index : 0);
   };
 
   return (

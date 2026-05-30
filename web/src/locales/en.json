@@ -751,6 +751,9 @@
       "url": "URL",
       "label": "Webhooks"
     },
+    "import-export": {
+      "label": "Import & Export"
+    },
     "tags": {
       "label": "Tags",
       "title": "Tag metadata",

@@ -5,12 +5,15 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/time/rate"
 
 	"github.com/usememos/memos/internal/markdown"
 	"github.com/usememos/memos/internal/profile"
@@ -21,6 +24,34 @@ import (
 )
 
 const maxAPIRequestBytes = 256 << 20
+
+var (
+	authRateLimiters   sync.Map // key: IP, value: *rate.Limiter
+	authRateLimitPaths = []string{"SignIn", "CreateUser", "RefreshToken"}
+)
+
+func authRateLimitMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
+		path := c.Request().URL.Path
+		limited := false
+		for _, p := range authRateLimitPaths {
+			if strings.Contains(path, p) {
+				limited = true
+				break
+			}
+		}
+		if !limited {
+			return next(c)
+		}
+
+		ip := c.RealIP()
+		lim, _ := authRateLimiters.LoadOrStore(ip, rate.NewLimiter(rate.Every(10*time.Second), 5))
+		if !lim.(*rate.Limiter).Allow() {
+			return c.JSON(http.StatusTooManyRequests, map[string]string{"message": "too many requests, try again later"})
+		}
+		return next(c)
+	}
+}
 
 type APIV1Service struct {
 	v1pb.UnimplementedInstanceServiceServer
@@ -130,6 +161,7 @@ func (s *APIV1Service) RegisterGateway(ctx context.Context, echoServer *echo.Ech
 	gwGroup.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 	}))
+	gwGroup.Use(authRateLimitMiddleware)
 	// Register SSE endpoint with same CORS as rest of /api/v1.
 	RegisterSSERoutes(gwGroup, s.SSEHub, s.Store, s.Secret)
 	handler := echo.WrapHandler(http.MaxBytesHandler(gwMux, maxAPIRequestBytes))
@@ -161,7 +193,7 @@ func (s *APIV1Service) RegisterGateway(ctx context.Context, echoServer *echo.Ech
 		AllowHeaders:     []string{"*"},
 		AllowCredentials: true,
 	})
-	connectGroup := echoServer.Group("", corsHandler)
+	connectGroup := echoServer.Group("", corsHandler, authRateLimitMiddleware)
 	connectGroup.Any("/memos.api.v1.*", echo.WrapHandler(http.MaxBytesHandler(connectMux, maxAPIRequestBytes)))
 
 	return nil
