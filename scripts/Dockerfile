@@ -1,3 +1,8 @@
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
+WORKDIR /web-build
+COPY web/ .
+RUN corepack enable && pnpm install --frozen-lockfile && pnpm build
+
 FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine AS backend
 WORKDIR /backend-build
 
@@ -9,8 +14,9 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-# Copy source code (use .dockerignore to exclude unnecessary files)
+# Copy source code and pre-built frontend
 COPY . .
+COPY --from=frontend /web-build/dist web/dist
 
 # Please build frontend first, so that the static files are available.
 # Refer to `pnpm release` in package.json for the build command.
