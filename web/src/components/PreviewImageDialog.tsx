@@ -52,10 +52,10 @@ const newGestureState = () => ({
 interface ZProps {
   src: string;
   alt: string;
-  onSwipeDelta?: (dx: number) => void;
+  onNavigate?: (dir: -1 | 1) => void;
 }
 
-const ZoomableImage: React.FC<ZProps> = ({ src, alt, onSwipeDelta }) => {
+const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -261,12 +261,12 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onSwipeDelta }) => {
 
   const onTouchEnd = useCallback(() => {
     const g = gestureRef.current;
-    if (g.type === "pan" && isAtFit() && onSwipeDelta) {
+    if (g.type === "pan" && isAtFit() && onNavigate) {
       const dx = g.lastTouchX - g.touchStartX;
-      if (Math.abs(dx) > SWIPE_THRESHOLD) onSwipeDelta(dx);
+      if (Math.abs(dx) > SWIPE_THRESHOLD) onNavigate(dx > 0 ? 1 : -1);
     }
     gestureRef.current = newGestureState();
-  }, [onSwipeDelta, isAtFit]);
+  }, [onNavigate, isAtFit]);
 
   // --- Mouse ---
 
@@ -282,14 +282,13 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onSwipeDelta }) => {
       const isPinch = e.ctrlKey || e.metaKey;
       const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
 
-      // Horizontal swipe: report delta to parent, prevent default
-      if (!isPinch && adx * 2 > ady && onSwipeDelta) {
-        onSwipeDelta(e.deltaX);
+      if (!isPinch && adx * 2 > ady && onNavigate) {
+        if (L.current.zoom > 1.001) resetToFit();
+        onNavigate(e.deltaX > 0 ? 1 : -1);
         e.preventDefault();
         return;
       }
 
-      // Zoom
       if (isPinch || ady > adx * 0.7) {
         e.preventDefault();
         const factor = Math.exp(-e.deltaY * 0.005);
@@ -298,7 +297,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onSwipeDelta }) => {
     };
     c.addEventListener("wheel", handler, { passive: false });
     return () => c.removeEventListener("wheel", handler);
-  }, [setZoom, onSwipeDelta]);
+  }, [setZoom, onNavigate, resetToFit]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (isAtFit()) return;
@@ -410,19 +409,12 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
     return () => document.removeEventListener("keydown", h);
   }, [total, onOpenChange, open]);
 
-  const swipeAccRef = useRef(0);
-  const swipeLockRef = useRef(false);
-  const swipeTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const onSwipeDelta = useCallback((dx: number) => {
-    if (swipeLockRef.current) return;
-    swipeAccRef.current += dx;
-    if (Math.abs(swipeAccRef.current) > 150) {
-      setIdx((p) => { const n = p + (swipeAccRef.current > 0 ? 1 : -1); return n >= 0 && n < total ? n : p; });
-      swipeAccRef.current = 0;
-      swipeLockRef.current = true;
-      clearTimeout(swipeTimerRef.current);
-      swipeTimerRef.current = setTimeout(() => { swipeLockRef.current = false; }, 100);
-    }
+  const lastNavRef = useRef(0);
+  const onNavigate = useCallback((dir: -1 | 1) => {
+    const now = Date.now();
+    if (now - lastNavRef.current < 500) return;
+    lastNavRef.current = now;
+    setIdx((p) => { const n = p + dir; return n >= 0 && n < total ? n : p; });
   }, [total]);
 
   if (!total || !it) return null;
@@ -456,7 +448,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
               <MotionPhotoPreview key={it.id} posterUrl={it.posterUrl} motionUrl={it.motionUrl} alt={`${cur + 1} / ${total}`} presentationTimestampUs={it.presentationTimestampUs} badgeClassName="left-3 top-3 sm:left-4 sm:top-4" mediaClassName="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" />
             </div>
           ) : (
-            <ZoomableImage src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onSwipeDelta={onSwipeDelta} />
+            <ZoomableImage src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
           )}
         </div>
 
