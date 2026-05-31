@@ -165,6 +165,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const onLoad = useCallback(() => { computeFit(); resetToFit(); }, [computeFit, resetToFit]);
 
   useEffect(() => {
+    // Cancel any pending layout from the previous image to avoid flash.
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
     const img = imgRef.current;
     if (!img) return;
     if (img.complete && img.naturalWidth) { computeFit(); resetToFit(); }
