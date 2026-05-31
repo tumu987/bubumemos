@@ -282,6 +282,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       const isPinch = e.ctrlKey || e.metaKey;
       const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
 
+      // Horizontal swipe → navigate (only at fit)
       if (!isPinch && adx > ady && adx > 25 && L.current.zoom <= 1.2 && onNavigate) {
         if (L.current.zoom > 1.001) resetToFit();
         onNavigate(e.deltaX > 0 ? 1 : -1);
@@ -289,15 +290,30 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
         return;
       }
 
-      if (isPinch || ady > adx * 0.7) {
+      // Pinch → zoom
+      if (isPinch) {
         e.preventDefault();
         const factor = Math.exp(-e.deltaY * 0.005);
         setZoom(L.current.zoom * factor, e.clientX, e.clientY);
+        return;
+      }
+
+      // Non-pinch scroll when zoomed → pan
+      if (L.current.zoom > 1.001) {
+        e.preventDefault();
+        const clamped = clampPan(
+          L.current.panX + e.deltaX,
+          L.current.panY + e.deltaY,
+          L.current.zoom,
+        );
+        L.current.panX = clamped.x;
+        L.current.panY = clamped.y;
+        scheduleLayout();
       }
     };
     c.addEventListener("wheel", handler, { passive: false });
     return () => c.removeEventListener("wheel", handler);
-  }, [setZoom, onNavigate, resetToFit]);
+  }, [setZoom, onNavigate, resetToFit, clampPan, scheduleLayout]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (isAtFit()) return;
