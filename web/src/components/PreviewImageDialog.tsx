@@ -53,9 +53,10 @@ interface ZProps {
   src: string;
   alt: string;
   onNavigate?: (direction: -1 | 1) => void;
+  onWheelActivity?: () => void;
 }
 
-const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
+const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate, onWheelActivity }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -281,6 +282,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     const c = containerRef.current;
     if (!c) return;
     const handler = (e: WheelEvent) => {
+      onWheelActivity?.();
       const isPinch = e.ctrlKey || e.metaKey;
       const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
       if (!isPinch && adx > ady * 1.5 && adx > 25 && onNavigate) {
@@ -297,7 +299,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     };
     c.addEventListener("wheel", handler, { passive: false });
     return () => c.removeEventListener("wheel", handler);
-  }, [setZoom, onNavigate, resetToFit]);
+  }, [setZoom, onNavigate, resetToFit, onWheelActivity]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (isAtFit()) return;
@@ -387,8 +389,14 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIndex = 0 }: Props) {
   const sm = useMediaQuery("sm");
   const [idx, setIdx] = useState(initialIndex);
-  const navGateRef = useRef(false);   // true = navigation already happened in this gesture
-  const navTimerRef = useRef(0);      // timeout to reset the gate
+  const navGateRef = useRef(false);
+  const navTimerRef = useRef(0);
+
+  // Keep gate closed while wheel events are active; open 300ms after events stop
+  const resetNavGateTimer = useCallback(() => {
+    clearTimeout(navTimerRef.current);
+    navTimerRef.current = window.setTimeout(() => { navGateRef.current = false; }, 300);
+  }, []);
   const previewItems = useMemo(
     () => items ?? imgUrls.map((url) => ({ id: url, kind: "image" as const, sourceUrl: url, posterUrl: url, filename: "Image" })),
     [imgUrls, items],
@@ -412,10 +420,8 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
   }, [total, onOpenChange, open]);
 
   const onNavigate = useCallback((dir: -1 | 1) => {
-    if (navGateRef.current) return; // already navigated in this gesture
+    if (navGateRef.current) return;
     navGateRef.current = true;
-    clearTimeout(navTimerRef.current);
-    navTimerRef.current = window.setTimeout(() => { navGateRef.current = false; }, 500);
     setIdx((p) => { const n = p + dir; return n >= 0 && n < total ? n : p; });
   }, [total]);
 
@@ -450,7 +456,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
               <MotionPhotoPreview key={it.id} posterUrl={it.posterUrl} motionUrl={it.motionUrl} alt={`${cur + 1} / ${total}`} presentationTimestampUs={it.presentationTimestampUs} badgeClassName="left-3 top-3 sm:left-4 sm:top-4" mediaClassName="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" />
             </div>
           ) : (
-            <ZoomableImage key={it.id} src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
+            <ZoomableImage key={it.id} src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} onWheelActivity={resetNavGateTimer} />
           )}
         </div>
 
