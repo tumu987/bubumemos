@@ -80,7 +80,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     }
     const t = transition || "none";
     if (L.current.zoom <= 1.001) {
-      img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:none;transform-origin:0 0;transition:${t};will-change:auto`;
+      img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:none;transform-origin:0 0;transition:${t};will-change:transform`;
     } else {
       img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:translate(${L.current.panX}px,${L.current.panY}px) scale(${L.current.zoom});transform-origin:0 0;transition:${t};will-change:transform`;
     }
