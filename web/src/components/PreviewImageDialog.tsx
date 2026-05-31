@@ -410,16 +410,20 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
     return () => document.removeEventListener("keydown", h);
   }, [total, onOpenChange, open]);
 
-  // Swipe navigation — accumulate wheel deltas, navigate when gesture ends (150ms idle)
+  // Swipe: navigate immediately on threshold, then lock until gesture ends
   const swipeAccRef = useRef(0);
+  const swipeLockRef = useRef(false);
   const swipeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const onSwipeDelta = useCallback((dx: number) => {
     swipeAccRef.current += dx;
     clearTimeout(swipeTimerRef.current);
+    if (!swipeLockRef.current && Math.abs(swipeAccRef.current) > 150) {
+      setIdx((p) => { const n = p + (swipeAccRef.current > 0 ? 1 : -1); return n >= 0 && n < total ? n : p; });
+      swipeAccRef.current = 0;
+      swipeLockRef.current = true;
+    }
     swipeTimerRef.current = setTimeout(() => {
-      if (Math.abs(swipeAccRef.current) > 150) {
-        setIdx((p) => { const n = p + (swipeAccRef.current > 0 ? 1 : -1); return n >= 0 && n < total ? n : p; });
-      }
+      swipeLockRef.current = false;
       swipeAccRef.current = 0;
     }, 150);
   }, [total]);
