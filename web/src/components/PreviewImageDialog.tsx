@@ -276,22 +276,27 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     else setZoom(L.current.zoom * DBL_TAP_FACTOR, e.clientX, e.clientY, "transform 0.3s ease-out");
   }, [setZoom, resetToFit]);
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    const isPinch = e.ctrlKey || e.metaKey;
-    const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
-    // Navigation: only for predominantly horizontal swipes (adx > ady * 1.5)
-    if (!isPinch && adx > ady * 1.5 && adx > 25 && onNavigate) {
-      if (L.current.zoom > 1.001) resetToFit();
-      e.preventDefault();
-      onNavigate(e.deltaX > 0 ? 1 : -1);
-      return;
-    }
-    // Zoom: pinch or vertical scroll — use exponential for natural feel
-    if (isPinch || ady > adx * 0.7) {
-      e.preventDefault();
-      const factor = Math.exp(-e.deltaY * 0.005);
-      setZoom(L.current.zoom * factor, e.clientX, e.clientY);
-    }
+  // 原生 wheel 监听（{ passive: false }），防止触控板 pinch 时浏览器缩放整页
+  useEffect(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const handler = (e: WheelEvent) => {
+      const isPinch = e.ctrlKey || e.metaKey;
+      const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
+      if (!isPinch && adx > ady * 1.5 && adx > 25 && onNavigate) {
+        if (L.current.zoom > 1.001) resetToFit();
+        e.preventDefault();
+        onNavigate(e.deltaX > 0 ? 1 : -1);
+        return;
+      }
+      if (isPinch || ady > adx * 0.7) {
+        e.preventDefault();
+        const factor = Math.exp(-e.deltaY * 0.005);
+        setZoom(L.current.zoom * factor, e.clientX, e.clientY);
+      }
+    };
+    c.addEventListener("wheel", handler, { passive: false });
+    return () => c.removeEventListener("wheel", handler);
   }, [setZoom, onNavigate, resetToFit]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
@@ -353,7 +358,6 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onDoubleClick={onDoubleClick}
-      onWheel={onWheel}
       onMouseDown={onMouseDown}
       onGestureStart={onGestureStart}
       onGestureChange={onGestureChange}
