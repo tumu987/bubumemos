@@ -294,7 +294,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       if (isPinch || (ady > adx && ady > 50)) {
         e.preventDefault();
         // Mouse wheel: small factor for smooth steps; pinch: responsive factor
-        const rate = ady > 50 ? 0.0015 : 0.005;
+        const rate = ady > 50 ? 0.001 : 0.005;
         const factor = Math.exp(-e.deltaY * rate);
         setZoom(L.current.zoom * factor, e.clientX, e.clientY);
         return;
