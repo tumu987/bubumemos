@@ -63,7 +63,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const fitRef = useRef({ x: 0, y: 0, w: 0, h: 0, cw: 0, ch: 0, ready: false });
   // zoom: fit 之上的额外缩放和偏移
   const L = useRef({ zoom: 1, panX: 0, panY: 0 });
-  const swipeAccX = useRef(0); // 累积水平位移，超阈值导航后清零
+  const swipeAccX = useRef(0);
+  const navCooldownRef = useRef(false); // 导航后冷却，阻止惯性尾事件再次触发
   const lastTapRef = useRef(0);
   const gestureRef = useRef(newGestureState());
   const rafRef = useRef(0);
@@ -167,8 +168,9 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const onLoad = useCallback(() => { computeFit(); resetToFit(); }, [computeFit, resetToFit]);
 
   useEffect(() => {
-    // Cancel any pending layout from the previous image to avoid flash.
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
+    swipeAccX.current = 0;
+    navCooldownRef.current = false;
     const img = imgRef.current;
     if (!img) return;
     if (img.complete && img.naturalWidth) { computeFit(); resetToFit(); }
@@ -278,35 +280,38 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   }, [setZoom, resetToFit]);
 
   // 原生 wheel 监听（{ passive: false }），触控板 pinch 时不缩放整页。
-  // 水平滑动导航用累积位移：adx 累加到超 200px 才切图，然后清零。
-  // 一次手势最多产生一次阈值突破 → 最多切一张图。
+  // 累积位移导航：deltaX 累加到 300px 切图，然后进入 400ms 冷却。
+  // 一次手势内阈值只突破一次，冷却阻挡惯性尾事件。
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;
     let idleTimer: ReturnType<typeof setTimeout>;
+    let cooldownTimer: ReturnType<typeof setTimeout>;
     const handler = (e: WheelEvent) => {
       const isPinch = e.ctrlKey || e.metaKey;
       const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
 
-      // Horizontal swipe: accumulate delta, navigate on threshold
       if (!isPinch && adx * 2 > ady && onNavigate) {
-        swipeAccX.current += e.deltaX;
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => { swipeAccX.current = 0; }, 200);
-        if (Math.abs(swipeAccX.current) > 200) {
-          if (L.current.zoom > 1.001) resetToFit();
-          onNavigate(swipeAccX.current > 0 ? 1 : -1);
-          swipeAccX.current = 0;
+        if (!navCooldownRef.current) {
+          swipeAccX.current += e.deltaX;
           clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => { swipeAccX.current = 0; }, 300);
+          if (Math.abs(swipeAccX.current) > 300) {
+            if (L.current.zoom > 1.001) resetToFit();
+            onNavigate(swipeAccX.current > 0 ? 1 : -1);
+            swipeAccX.current = 0;
+            navCooldownRef.current = true;
+            clearTimeout(idleTimer);
+            clearTimeout(cooldownTimer);
+            cooldownTimer = setTimeout(() => { navCooldownRef.current = false; }, 400);
+          }
         }
         e.preventDefault();
         return;
       }
 
-      // Not a swipe — reset accumulator
       swipeAccX.current = 0;
 
-      // Zoom: pinch or vertical scroll
       if (isPinch || ady > adx * 0.7) {
         e.preventDefault();
         const factor = Math.exp(-e.deltaY * 0.005);
@@ -317,6 +322,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     return () => {
       c.removeEventListener("wheel", handler);
       clearTimeout(idleTimer);
+      clearTimeout(cooldownTimer);
     };
   }, [setZoom, onNavigate, resetToFit]);
 
@@ -430,12 +436,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
     return () => document.removeEventListener("keydown", h);
   }, [total, onOpenChange, open]);
 
-  const lastNavRef = useRef(0);
-
   const onNavigate = useCallback((dir: -1 | 1) => {
-    const now = Date.now();
-    if (now - lastNavRef.current < 300) return;
-    lastNavRef.current = now;
     setIdx((p) => { const n = p + dir; return n >= 0 && n < total ? n : p; });
   }, [total]);
 
@@ -470,7 +471,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
               <MotionPhotoPreview key={it.id} posterUrl={it.posterUrl} motionUrl={it.motionUrl} alt={`${cur + 1} / ${total}`} presentationTimestampUs={it.presentationTimestampUs} badgeClassName="left-3 top-3 sm:left-4 sm:top-4" mediaClassName="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" />
             </div>
           ) : (
-            <ZoomableImage key={it.id} src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
+            <ZoomableImage src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
           )}
         </div>
 
