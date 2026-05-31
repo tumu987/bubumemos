@@ -290,15 +290,15 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
         return;
       }
 
-      // Pinch → zoom
-      if (isPinch) {
+      // Pinch or mouse wheel → zoom (mouse wheel deltaY ~100, trackpad ~5-20)
+      if (isPinch || (ady > adx && ady > 50)) {
         e.preventDefault();
         const factor = Math.exp(-e.deltaY * 0.005);
         setZoom(L.current.zoom * factor, e.clientX, e.clientY);
         return;
       }
 
-      // Non-pinch scroll when zoomed → pan
+      // Trackpad scroll when zoomed → pan
       if (L.current.zoom > 1.001) {
         e.preventDefault();
         const clamped = clampPan(
