@@ -387,7 +387,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIndex = 0 }: Props) {
   const sm = useMediaQuery("sm");
   const [idx, setIdx] = useState(initialIndex);
-  const lastNavRef = useRef(0);
+  const navGateRef = useRef(false);   // true = navigation already happened in this gesture
+  const navTimerRef = useRef(0);      // timeout to reset the gate
   const previewItems = useMemo(
     () => items ?? imgUrls.map((url) => ({ id: url, kind: "image" as const, sourceUrl: url, posterUrl: url, filename: "Image" })),
     [imgUrls, items],
@@ -411,9 +412,10 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
   }, [total, onOpenChange, open]);
 
   const onNavigate = useCallback((dir: -1 | 1) => {
-    const now = Date.now();
-    if (now - lastNavRef.current < 500) return;
-    lastNavRef.current = now;
+    if (navGateRef.current) return; // already navigated in this gesture
+    navGateRef.current = true;
+    clearTimeout(navTimerRef.current);
+    navTimerRef.current = window.setTimeout(() => { navGateRef.current = false; }, 500);
     setIdx((p) => { const n = p + dir; return n >= 0 && n < total ? n : p; });
   }, [total]);
 
