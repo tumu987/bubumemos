@@ -66,44 +66,36 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const lastNavRef = useRef(0);
   const lastTapRef = useRef(0);
   const gestureRef = useRef(newGestureState());
+  const rafRef = useRef(0);
+  const pendingTransitionRef = useRef("");
 
-  // --- DOM 写入 ---
+  // --- DOM 写入（合并到单次 cssText，减少样式重算次数） ---
   const applyLayout = useCallback((transition?: string) => {
     const img = imgRef.current;
     if (!img) return;
     const f = fitRef.current;
     if (!f.ready) {
-      img.style.position = "";
-      img.style.left = "";
-      img.style.top = "";
-      img.style.width = "";
-      img.style.height = "";
-      img.style.maxWidth = "100%";
-      img.style.maxHeight = "100%";
-      img.style.transform = "";
-      img.style.transformOrigin = "";
-      img.style.transition = "";
+      img.style.cssText = "display:block;max-width:100%;max-height:100%";
       return;
     }
-    img.style.position = "absolute";
-    img.style.left = `${f.x}px`;
-    img.style.top = `${f.y}px`;
-    img.style.width = `${f.w}px`;
-    img.style.height = `${f.h}px`;
-    img.style.maxWidth = "";
-    img.style.maxHeight = "";
+    const t = transition || "none";
     if (L.current.zoom <= 1.001) {
-      img.style.transform = "none";
-      img.style.transformOrigin = "";
-      img.style.transition = transition || "none";
-      img.style.willChange = "auto";
+      img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:none;transform-origin:0 0;transition:${t};will-change:auto`;
     } else {
-      img.style.transform = `translate(${L.current.panX}px, ${L.current.panY}px) scale(${L.current.zoom})`;
-      img.style.transformOrigin = "0 0";
-      img.style.transition = transition || "none";
-      img.style.willChange = "transform";
+      img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:translate(${L.current.panX}px,${L.current.panY}px) scale(${L.current.zoom});transform-origin:0 0;transition:${t};will-change:transform`;
     }
   }, []);
+
+  // --- 调度 DOM 写入到下一帧，触控板高频事件只写最后一次 ---
+  const scheduleLayout = useCallback((transition?: string) => {
+    if (transition) pendingTransitionRef.current = transition;
+    if (rafRef.current) return; // already scheduled
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      applyLayout(pendingTransitionRef.current);
+      pendingTransitionRef.current = "";
+    });
+  }, [applyLayout]);
 
   // --- 计算 fit ---
   const computeFit = useCallback(() => {
@@ -166,8 +158,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     L.current.zoom = z;
     L.current.panX = clamped.x;
     L.current.panY = clamped.y;
-    applyLayout(transition);
-  }, [applyLayout, clampPan, resetToFit]);
+    scheduleLayout(transition);
+  }, [scheduleLayout, clampPan, resetToFit]);
 
   // --- 图片加载 / src 变化 ---
   const onLoad = useCallback(() => { computeFit(); resetToFit(); }, [computeFit, resetToFit]);
@@ -195,11 +187,11 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       const clamped = clampPan(L.current.panX, L.current.panY, z);
       L.current.panX = clamped.x;
       L.current.panY = clamped.y;
-      applyLayout();
+      scheduleLayout();
     });
     ro.observe(c);
     return () => ro.disconnect();
-  }, [computeFit, resetToFit, applyLayout, clampPan]);
+  }, [computeFit, resetToFit, scheduleLayout, clampPan]);
 
   // --- Touch ---
 
@@ -255,7 +247,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
         const clamped = clampPan(g.startTX + dx, g.startTY + dy, L.current.zoom);
         L.current.panX = clamped.x;
         L.current.panY = clamped.y;
-        applyLayout();
+        scheduleLayout();
       }
     } else if (ts.length === 2 && g.type === "pinch") {
       e.preventDefault();
@@ -263,7 +255,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       const ratio = dist / g.pinchDist0;
       setZoom(g.pinchScale0 * ratio, g.pinchCX, g.pinchCY);
     }
-  }, [applyLayout, clampPan, setZoom, isAtFit]);
+  }, [scheduleLayout, clampPan, setZoom, isAtFit]);
 
   const onTouchEnd = useCallback(() => {
     const g = gestureRef.current;
@@ -322,13 +314,13 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
       const clamped = clampPan(g.startTX + dx, g.startTY + dy, L.current.zoom);
       L.current.panX = clamped.x; L.current.panY = clamped.y;
-      applyLayout();
+      scheduleLayout();
     };
     const mu = () => { gestureRef.current = newGestureState(); };
     window.addEventListener("mousemove", mm);
     window.addEventListener("mouseup", mu);
     return () => { window.removeEventListener("mousemove", mm); window.removeEventListener("mouseup", mu); };
-  }, [applyLayout, clampPan]);
+  }, [scheduleLayout, clampPan]);
 
   // --- render ---
   return (
