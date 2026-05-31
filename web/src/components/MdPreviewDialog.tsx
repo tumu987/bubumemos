@@ -80,20 +80,25 @@ const MdPreviewDialog = ({ open, onOpenChange, items, initialIndex = 0 }: Props)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!open) return;
-      if (event.key === "Escape") {
-        onOpenChange(false);
-        return;
-      }
-      if (event.key === "ArrowLeft") {
-        setCurrentIndex((prev) => Math.max(prev - 1, 0));
-        return;
-      }
-      if (event.key === "ArrowRight") {
-        setCurrentIndex((prev) => Math.min(prev + 1, itemCount - 1));
+      if (event.key === "Escape") { onOpenChange(false); return; }
+      if (event.key === "ArrowLeft") { setCurrentIndex((prev) => Math.max(prev - 1, 0)); return; }
+      if (event.key === "ArrowRight") { setCurrentIndex((prev) => Math.min(prev + 1, itemCount - 1)); }
+    };
+    const handleWheel = (e: WheelEvent) => {
+      if (!open) return;
+      const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
+      if (adx > ady && adx > 25 && !e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaX > 0) handleNext();
+        else handlePrevious();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("wheel", handleWheel);
+    };
   }, [itemCount, onOpenChange, open]);
 
   if (!itemCount || !currentItem) {

@@ -417,9 +417,15 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (!open) return;
-      if (e.key === "Escape") onOpenChange(false);
-      if (e.key === "ArrowLeft") setIdx((p) => Math.max(0, p - 1));
-      if (e.key === "ArrowRight") setIdx((p) => Math.min(total - 1, p + 1));
+      if (e.key === "Escape") { onOpenChange(false); return; }
+      if (e.key === "ArrowLeft") { setIdx((p) => Math.max(0, p - 1)); return; }
+      if (e.key === "ArrowRight") { setIdx((p) => Math.min(total - 1, p + 1)); return; }
+      if (e.key === " " || e.code === "Space") {
+        const video = document.querySelector<HTMLVideoElement>("#img-pv + div video, [aria-describedby='img-pv'] video");
+        if (!video || (e.target as HTMLElement)?.closest("input, textarea, [contenteditable]")) return;
+        e.preventDefault();
+        video.paused ? video.play().catch(() => {}) : video.pause();
+      }
     };
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);

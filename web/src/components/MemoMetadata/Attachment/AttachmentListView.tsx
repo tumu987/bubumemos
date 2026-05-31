@@ -1,6 +1,7 @@
 import { DownloadIcon, FileIcon, PaperclipIcon } from "lucide-react";
 import type { PropsWithChildren } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import AudioPlayerDialog from "@/components/AudioPlayerDialog";
 import MetadataSection from "@/components/MemoMetadata/MetadataSection";
 import MotionPhotoPreview from "@/components/MotionPhotoPreview";
 import { cn } from "@/lib/utils";
@@ -110,11 +111,8 @@ const CollageVisualItem = ({
           src={item.sourceUrl}
           className={cn(COVER_MEDIA_CLASS, "object-contain")}
           controls
+          playsInline
           preload="metadata"
-          onClick={(e) => {
-            e.stopPropagation();
-            e.currentTarget.requestFullscreen?.();
-          }}
         />
       ) : item.kind === "motion" && motionPreviewProps ? (
         <MotionPhotoPreview
@@ -274,6 +272,7 @@ const DocsList = ({ attachments }: { attachments: Attachment[] }) => (
 const Divider = () => <div className="border-t border-border/70 opacity-80" />;
 
 const AttachmentListView = ({ attachments, onImagePreview, onPdfPreview, onMdPreview }: AttachmentListViewProps) => {
+  const [audioDialog, setAudioDialog] = useState<{ open: boolean; filename: string; url: string; mimeType: string; size?: number }>({ open: false, filename: "", url: "", mimeType: "" });
   const { visual, audio, docs } = useMemo(() => separateAttachments(attachments), [attachments]);
   const visualItems = useMemo(() => buildAttachmentVisualItems(visual), [visual]);
   const previewItems = useMemo(() => visualItems.map((item) => item.previewItem), [visualItems]);
@@ -306,21 +305,37 @@ const AttachmentListView = ({ attachments, onImagePreview, onPdfPreview, onMdPre
   };
 
   return (
-    <MetadataSection
-      icon={PaperclipIcon}
-      title="Attachments"
-      count={visualItems.length + audio.length + docs.length}
-      contentClassName="flex flex-col gap-2 p-2"
-    >
-      {hasMedia && (
-        <div className="flex flex-col gap-2">
-          {hasVisual && <VisualGallery items={visualItems} onPreview={handlePreview} />}
-          {hasAudio && <AudioList attachments={audio.filter(isAudioAttachment)} compact />}
-        </div>
-      )}
-      {hasMedia && hasDocs && <Divider />}
-      {hasDocs && <DocsList attachments={docs} />}
-    </MetadataSection>
+    <>
+      <MetadataSection
+        icon={PaperclipIcon}
+        title="Attachments"
+        count={visualItems.length + audio.length + docs.length}
+        contentClassName="flex flex-col gap-2 p-2"
+      >
+        {hasMedia && (
+          <div className="flex flex-col gap-2">
+            {hasVisual && <VisualGallery items={visualItems} onPreview={handlePreview} />}
+            {hasAudio && (
+              <AudioList
+                attachments={audio.filter(isAudioAttachment)}
+                compact
+                onExpand={(url, filename, mimeType) => setAudioDialog({ open: true, url, filename, mimeType })}
+              />
+            )}
+          </div>
+        )}
+        {hasMedia && hasDocs && <Divider />}
+        {hasDocs && <DocsList attachments={docs} />}
+      </MetadataSection>
+      <AudioPlayerDialog
+        open={audioDialog.open}
+        onOpenChange={(open) => setAudioDialog((prev) => ({ ...prev, open }))}
+        filename={audioDialog.filename}
+        sourceUrl={audioDialog.url}
+        mimeType={audioDialog.mimeType}
+        size={audioDialog.size}
+      />
+    </>
   );
 };
 
