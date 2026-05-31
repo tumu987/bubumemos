@@ -33,6 +33,14 @@ const DBL_TAP_FACTOR = 2.5;
 const SWIPE_THRESHOLD = 40;
 const DBL_TAP_DELAY = 300;
 
+function touchDist(ts: React.TouchList, i: number, j: number) {
+  return Math.hypot(ts[i].clientX - ts[j].clientX, ts[i].clientY - ts[j].clientY);
+}
+
+function touchMid(ts: React.TouchList, i: number, j: number) {
+  return { x: (ts[i].clientX + ts[j].clientX) / 2, y: (ts[i].clientY + ts[j].clientY) / 2 };
+}
+
 const newGestureState = () => ({
   type: "none" as "none" | "pan" | "pinch",
   startX: 0,
@@ -79,11 +87,9 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       return;
     }
     const t = transition || "none";
-    if (L.current.zoom <= 1.001) {
-      img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:none;transform-origin:0 0;transition:${t};will-change:transform`;
-    } else {
-      img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:translate(${L.current.panX}px,${L.current.panY}px) scale(${L.current.zoom});transform-origin:0 0;transition:${t};will-change:transform`;
-    }
+    const atFit = L.current.zoom <= 1.001;
+    const xform = atFit ? "none" : `translate(${L.current.panX}px,${L.current.panY}px) scale(${L.current.zoom})`;
+    img.style.cssText = `display:block;position:absolute;left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px;max-width:none;max-height:none;transform:${xform};transform-origin:0 0;transition:${t};will-change:transform`;
   }, []);
 
   // --- 调度 DOM 写入到下一帧，触控板高频事件只写最后一次 ---
@@ -167,6 +173,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 
   useEffect(() => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
+    pendingTransitionRef.current = "";
+    gestureRef.current = newGestureState();
     const img = imgRef.current;
     if (!img) return;
     if (img.complete && img.naturalWidth) { computeFit(); resetToFit(); }
@@ -196,14 +204,6 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   }, [computeFit, resetToFit, scheduleLayout, clampPan]);
 
   // --- Touch ---
-
-  const touchDist = (ts: React.TouchList, i: number, j: number) =>
-    Math.hypot(ts[i].clientX - ts[j].clientX, ts[i].clientY - ts[j].clientY);
-
-  const touchMid = (ts: React.TouchList, i: number, j: number) => ({
-    x: (ts[i].clientX + ts[j].clientX) / 2,
-    y: (ts[i].clientY + ts[j].clientY) / 2,
-  });
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     const ts = e.touches;
@@ -271,9 +271,9 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   // --- Mouse ---
 
   const onDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (L.current.zoom > 1.001) resetToFit("transform 0.3s ease-out");
+    if (!isAtFit()) resetToFit("transform 0.3s ease-out");
     else setZoom(L.current.zoom * DBL_TAP_FACTOR, e.clientX, e.clientY, "transform 0.3s ease-out");
-  }, [setZoom, resetToFit]);
+  }, [setZoom, resetToFit, isAtFit]);
 
   useEffect(() => {
     const c = containerRef.current;
