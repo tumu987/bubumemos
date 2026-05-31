@@ -63,7 +63,6 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const fitRef = useRef({ x: 0, y: 0, w: 0, h: 0, cw: 0, ch: 0, ready: false });
   // zoom: fit 之上的额外缩放和偏移
   const L = useRef({ zoom: 1, panX: 0, panY: 0 });
-  const lastNavRef = useRef(0);
   const lastTapRef = useRef(0);
   const gestureRef = useRef(newGestureState());
   const rafRef = useRef(0);
@@ -282,13 +281,9 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
     // Navigation: only for predominantly horizontal swipes (adx > ady * 1.5)
     if (!isPinch && adx > ady * 1.5 && adx > 25 && onNavigate) {
-      const now = Date.now();
-      if (now - lastNavRef.current > 500) {
-        lastNavRef.current = now;
-        if (L.current.zoom > 1.001) resetToFit();
-        e.preventDefault();
-        onNavigate(e.deltaX > 0 ? 1 : -1);
-      }
+      if (L.current.zoom > 1.001) resetToFit();
+      e.preventDefault();
+      onNavigate(e.deltaX > 0 ? 1 : -1);
       return;
     }
     // Zoom: pinch or vertical scroll — use exponential for natural feel
@@ -388,6 +383,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIndex = 0 }: Props) {
   const sm = useMediaQuery("sm");
   const [idx, setIdx] = useState(initialIndex);
+  const lastNavRef = useRef(0);
   const previewItems = useMemo(
     () => items ?? imgUrls.map((url) => ({ id: url, kind: "image" as const, sourceUrl: url, posterUrl: url, filename: "Image" })),
     [imgUrls, items],
@@ -411,6 +407,9 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
   }, [total, onOpenChange, open]);
 
   const onNavigate = useCallback((dir: -1 | 1) => {
+    const now = Date.now();
+    if (now - lastNavRef.current < 500) return;
+    lastNavRef.current = now;
     setIdx((p) => { const n = p + dir; return n >= 0 && n < total ? n : p; });
   }, [total]);
 
