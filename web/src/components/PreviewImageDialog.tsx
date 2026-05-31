@@ -414,17 +414,15 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
   const swipeLockRef = useRef(false);
   const swipeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const onSwipeDelta = useCallback((dx: number) => {
+    if (swipeLockRef.current) return;
     swipeAccRef.current += dx;
-    clearTimeout(swipeTimerRef.current);
-    if (!swipeLockRef.current && Math.abs(swipeAccRef.current) > 150) {
+    if (Math.abs(swipeAccRef.current) > 150) {
       setIdx((p) => { const n = p + (swipeAccRef.current > 0 ? 1 : -1); return n >= 0 && n < total ? n : p; });
       swipeAccRef.current = 0;
       swipeLockRef.current = true;
+      clearTimeout(swipeTimerRef.current);
+      swipeTimerRef.current = setTimeout(() => { swipeLockRef.current = false; }, 100);
     }
-    swipeTimerRef.current = setTimeout(() => {
-      swipeLockRef.current = false;
-      swipeAccRef.current = 0;
-    }, 100);
   }, [total]);
 
   if (!total || !it) return null;
