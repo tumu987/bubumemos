@@ -403,6 +403,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIndex = 0 }: Props) {
   const sm = useMediaQuery("sm");
   const [idx, setIdx] = useState(initialIndex);
+  const mediaContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const previewItems = useMemo(
     () => items ?? imgUrls.map((url) => ({ id: url, kind: "image" as const, sourceUrl: url, posterUrl: url, filename: "Image" })),
     [imgUrls, items],
@@ -421,7 +423,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
       if (e.key === "ArrowLeft") { setIdx((p) => Math.max(0, p - 1)); return; }
       if (e.key === "ArrowRight") { setIdx((p) => Math.min(total - 1, p + 1)); return; }
       if (e.key === " " || e.code === "Space") {
-        const video = document.querySelector<HTMLVideoElement>("#img-pv + div video, [aria-describedby='img-pv'] video");
+        const video = videoRef.current;
         if (!video || (e.target as HTMLElement)?.closest("input, textarea, [contenteditable]")) return;
         e.preventDefault();
         video.paused ? video.play().catch(() => {}) : video.pause();
@@ -460,10 +462,10 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
           </div>
         </div>
 
-        <div className="relative flex h-full w-full items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) onOpenChange(false); }}>
+        <div className="relative flex h-full w-full items-center justify-center" onClick={(e) => { if (e.target === e.currentTarget) onOpenChange(false); }} ref={mediaContainerRef}>
           {it.kind === "video" ? (
             <div className="flex max-h-full max-w-full items-center justify-center" onClick={(e) => e.stopPropagation()}>
-              <video key={it.id} src={it.sourceUrl} className="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" controls autoPlay playsInline />
+              <video ref={videoRef} key={it.id} src={it.sourceUrl} className="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" controls autoPlay playsInline />
             </div>
           ) : it.kind === "motion" ? (
             <div className="flex max-h-full max-w-full items-center justify-center" onClick={(e) => e.stopPropagation()}>

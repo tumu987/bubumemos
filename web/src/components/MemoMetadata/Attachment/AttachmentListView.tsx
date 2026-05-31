@@ -175,11 +175,8 @@ const SingleVisualItem = ({ item, onPreview }: { item: VisualItem; onPreview?: (
             src={item.sourceUrl}
             className={cn(COVER_MEDIA_CLASS, "object-contain")}
             controls
+            playsInline
             preload="metadata"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.currentTarget.requestFullscreen?.();
-            }}
           />
         </div>
       </VisualTile>
