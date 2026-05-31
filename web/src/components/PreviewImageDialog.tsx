@@ -52,10 +52,10 @@ const newGestureState = () => ({
 interface ZProps {
   src: string;
   alt: string;
-  onNavigate?: (direction: -1 | 1) => void;
+  onSwipeDelta?: (dx: number) => void;
 }
 
-const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
+const ZoomableImage: React.FC<ZProps> = ({ src, alt, onSwipeDelta }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -63,8 +63,6 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const fitRef = useRef({ x: 0, y: 0, w: 0, h: 0, cw: 0, ch: 0, ready: false });
   // zoom: fit 之上的额外缩放和偏移
   const L = useRef({ zoom: 1, panX: 0, panY: 0 });
-  const swipeAccX = useRef(0);
-  const navCooldownRef = useRef(false); // 导航后冷却，阻止惯性尾事件再次触发
   const lastTapRef = useRef(0);
   const gestureRef = useRef(newGestureState());
   const rafRef = useRef(0);
@@ -263,12 +261,12 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 
   const onTouchEnd = useCallback(() => {
     const g = gestureRef.current;
-    if (g.type === "pan" && isAtFit() && onNavigate) {
+    if (g.type === "pan" && isAtFit() && onSwipeDelta) {
       const dx = g.lastTouchX - g.touchStartX;
-      if (Math.abs(dx) > SWIPE_THRESHOLD) onNavigate(dx > 0 ? -1 : 1);
+      if (Math.abs(dx) > SWIPE_THRESHOLD) onSwipeDelta(dx);
     }
     gestureRef.current = newGestureState();
-  }, [onNavigate, isAtFit]);
+  }, [onSwipeDelta, isAtFit]);
 
   // --- Mouse ---
 
@@ -280,33 +278,18 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;
-    let idleTimer: ReturnType<typeof setTimeout>;
-    let cooldownTimer: ReturnType<typeof setTimeout>;
     const handler = (e: WheelEvent) => {
       const isPinch = e.ctrlKey || e.metaKey;
       const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
 
-      if (!isPinch && adx * 2 > ady && onNavigate) {
-        if (!navCooldownRef.current) {
-          swipeAccX.current += e.deltaX;
-          clearTimeout(idleTimer);
-          idleTimer = setTimeout(() => { swipeAccX.current = 0; }, 200);
-          if (Math.abs(swipeAccX.current) > 200) {
-            if (L.current.zoom > 1.001) resetToFit();
-            onNavigate(swipeAccX.current > 0 ? 1 : -1);
-            swipeAccX.current = 0;
-            navCooldownRef.current = true;
-            clearTimeout(idleTimer);
-            clearTimeout(cooldownTimer);
-            cooldownTimer = setTimeout(() => { navCooldownRef.current = false; }, 400);
-          }
-        }
+      // Horizontal swipe: report delta to parent, prevent default
+      if (!isPinch && adx * 2 > ady && onSwipeDelta) {
+        onSwipeDelta(e.deltaX);
         e.preventDefault();
         return;
       }
 
-      swipeAccX.current = 0;
-
+      // Zoom
       if (isPinch || ady > adx * 0.7) {
         e.preventDefault();
         const factor = Math.exp(-e.deltaY * 0.005);
@@ -314,12 +297,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       }
     };
     c.addEventListener("wheel", handler, { passive: false });
-    return () => {
-      c.removeEventListener("wheel", handler);
-      clearTimeout(idleTimer);
-      clearTimeout(cooldownTimer);
-    };
-  }, [setZoom, onNavigate, resetToFit]);
+    return () => c.removeEventListener("wheel", handler);
+  }, [setZoom, onSwipeDelta]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (isAtFit()) return;
@@ -431,8 +410,18 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
     return () => document.removeEventListener("keydown", h);
   }, [total, onOpenChange, open]);
 
-  const onNavigate = useCallback((dir: -1 | 1) => {
-    setIdx((p) => { const n = p + dir; return n >= 0 && n < total ? n : p; });
+  // Swipe navigation — accumulate wheel deltas, navigate when gesture ends (150ms idle)
+  const swipeAccRef = useRef(0);
+  const swipeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const onSwipeDelta = useCallback((dx: number) => {
+    swipeAccRef.current += dx;
+    clearTimeout(swipeTimerRef.current);
+    swipeTimerRef.current = setTimeout(() => {
+      if (Math.abs(swipeAccRef.current) > 150) {
+        setIdx((p) => { const n = p + (swipeAccRef.current > 0 ? 1 : -1); return n >= 0 && n < total ? n : p; });
+      }
+      swipeAccRef.current = 0;
+    }, 150);
   }, [total]);
 
   if (!total || !it) return null;
@@ -466,7 +455,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
               <MotionPhotoPreview key={it.id} posterUrl={it.posterUrl} motionUrl={it.motionUrl} alt={`${cur + 1} / ${total}`} presentationTimestampUs={it.presentationTimestampUs} badgeClassName="left-3 top-3 sm:left-4 sm:top-4" mediaClassName="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" />
             </div>
           ) : (
-            <ZoomableImage src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
+            <ZoomableImage src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onSwipeDelta={onSwipeDelta} />
           )}
         </div>
 
