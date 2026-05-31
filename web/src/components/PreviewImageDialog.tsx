@@ -169,8 +169,6 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
 
   useEffect(() => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
-    swipeAccX.current = 0;
-    navCooldownRef.current = false;
     const img = imgRef.current;
     if (!img) return;
     if (img.complete && img.naturalWidth) { computeFit(); resetToFit(); }
@@ -279,9 +277,6 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     else setZoom(L.current.zoom * DBL_TAP_FACTOR, e.clientX, e.clientY, "transform 0.3s ease-out");
   }, [setZoom, resetToFit]);
 
-  // 原生 wheel 监听（{ passive: false }），触控板 pinch 时不缩放整页。
-  // 累积位移导航：deltaX 累加到 300px 切图，然后进入 400ms 冷却。
-  // 一次手势内阈值只突破一次，冷却阻挡惯性尾事件。
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;
@@ -295,8 +290,8 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
         if (!navCooldownRef.current) {
           swipeAccX.current += e.deltaX;
           clearTimeout(idleTimer);
-          idleTimer = setTimeout(() => { swipeAccX.current = 0; }, 300);
-          if (Math.abs(swipeAccX.current) > 300) {
+          idleTimer = setTimeout(() => { swipeAccX.current = 0; }, 200);
+          if (Math.abs(swipeAccX.current) > 200) {
             if (L.current.zoom > 1.001) resetToFit();
             onNavigate(swipeAccX.current > 0 ? 1 : -1);
             swipeAccX.current = 0;
