@@ -282,7 +282,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       const isPinch = e.ctrlKey || e.metaKey;
       const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
 
-      if (!isPinch && adx * 2 > ady && onNavigate) {
+      if (!isPinch && adx > ady && adx > 25 && L.current.zoom <= 1.2 && onNavigate) {
         if (L.current.zoom > 1.001) resetToFit();
         onNavigate(e.deltaX > 0 ? 1 : -1);
         e.preventDefault();
