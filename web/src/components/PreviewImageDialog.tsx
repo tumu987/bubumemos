@@ -410,7 +410,6 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
     return () => document.removeEventListener("keydown", h);
   }, [total, onOpenChange, open]);
 
-  // Swipe: navigate immediately on threshold, then lock until gesture ends
   const swipeAccRef = useRef(0);
   const swipeLockRef = useRef(false);
   const swipeTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -425,7 +424,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
     swipeTimerRef.current = setTimeout(() => {
       swipeLockRef.current = false;
       swipeAccRef.current = 0;
-    }, 150);
+    }, 100);
   }, [total]);
 
   if (!total || !it) return null;
