@@ -68,6 +68,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const gestureRef = useRef(newGestureState());
   const rafRef = useRef(0);
   const pendingTransitionRef = useRef("");
+  const gestureZoomRef = useRef(1); // Safari gesture start zoom
 
   // --- DOM 写入（合并到单次 cssText，减少样式重算次数） ---
   const applyLayout = useCallback((transition?: string) => {
@@ -120,6 +121,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   }, []);
 
   const resetToFit = useCallback((transition?: string) => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
     L.current.zoom = 1;
     L.current.panX = 0;
     L.current.panY = 0;
@@ -278,22 +280,22 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
   const onWheel = useCallback((e: React.WheelEvent) => {
     const isPinch = e.ctrlKey || e.metaKey;
     const adx = Math.abs(e.deltaX), ady = Math.abs(e.deltaY);
-    if (!isPinch && adx > ady && adx > 25 && onNavigate) {
-      if (L.current.zoom <= 1.2) {
+    // Navigation: only for predominantly horizontal swipes (adx > ady * 1.5)
+    if (!isPinch && adx > ady * 1.5 && adx > 25 && onNavigate) {
+      const now = Date.now();
+      if (now - lastNavRef.current > 500) {
+        lastNavRef.current = now;
+        if (L.current.zoom > 1.001) resetToFit();
         e.preventDefault();
-        const now = Date.now();
-        if (now - lastNavRef.current > 500) {
-          lastNavRef.current = now;
-          if (L.current.zoom > 1.001) resetToFit();
-          onNavigate(e.deltaX > 0 ? 1 : -1);
-        }
-        return;
+        onNavigate(e.deltaX > 0 ? 1 : -1);
       }
+      return;
     }
-    if (isPinch || ady > adx) {
+    // Zoom: pinch or vertical scroll — use exponential for natural feel
+    if (isPinch || ady > adx * 0.7) {
       e.preventDefault();
-      const delta = -e.deltaY * 0.003;
-      setZoom(L.current.zoom + delta * L.current.zoom, e.clientX, e.clientY);
+      const factor = Math.exp(-e.deltaY * 0.005);
+      setZoom(L.current.zoom * factor, e.clientX, e.clientY);
     }
   }, [setZoom, onNavigate, resetToFit]);
 
@@ -324,6 +326,28 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
     return () => { window.removeEventListener("mousemove", mm); window.removeEventListener("mouseup", mu); };
   }, [scheduleLayout, clampPan]);
 
+  // --- Safari gesture events (pinch zoom) ---
+  const onGestureStart = useCallback((e: React.GestureEvent) => {
+    e.preventDefault();
+    gestureZoomRef.current = L.current.zoom;
+  }, []);
+
+  const onGestureChange = useCallback((e: React.GestureEvent) => {
+    e.preventDefault();
+    setZoom(gestureZoomRef.current * e.scale, e.clientX, e.clientY);
+  }, [setZoom]);
+
+  const onGestureEnd = useCallback((e: React.GestureEvent) => {
+    e.preventDefault();
+    if (L.current.zoom <= 1.05) resetToFit();
+  }, [resetToFit]);
+
+  // --- 图片加载失败 ---
+  const onError = useCallback(() => {
+    fitRef.current = { x: 0, y: 0, w: 0, h: 0, cw: 0, ch: 0, ready: false };
+    applyLayout();
+  }, [applyLayout]);
+
   // --- render ---
   return (
     <div
@@ -336,6 +360,9 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
       onDoubleClick={onDoubleClick}
       onWheel={onWheel}
       onMouseDown={onMouseDown}
+      onGestureStart={onGestureStart}
+      onGestureChange={onGestureChange}
+      onGestureEnd={onGestureEnd}
       onClick={(e) => e.stopPropagation()}
     >
       <img
@@ -347,6 +374,7 @@ const ZoomableImage: React.FC<ZProps> = ({ src, alt, onNavigate }) => {
         loading="eager"
         decoding="async"
         onLoad={onLoad}
+        onError={onError}
         style={{ display: "block" }}
       />
     </div>
@@ -417,7 +445,7 @@ function PreviewImageDialog({ open, onOpenChange, imgUrls = [], items, initialIn
               <MotionPhotoPreview key={it.id} posterUrl={it.posterUrl} motionUrl={it.motionUrl} alt={`${cur + 1} / ${total}`} presentationTimestampUs={it.presentationTimestampUs} badgeClassName="left-3 top-3 sm:left-4 sm:top-4" mediaClassName="max-h-[calc(100vh-8rem)] max-w-[calc(100vw-1.5rem)] rounded-md object-contain sm:max-h-[calc(100vh-7rem)] sm:max-w-[calc(100vw-8rem)]" />
             </div>
           ) : (
-            <ZoomableImage src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
+            <ZoomableImage key={it.id} src={it.sourceUrl} alt={`${cur + 1} / ${total}`} onNavigate={onNavigate} />
           )}
         </div>
 
