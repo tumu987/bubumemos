@@ -52,7 +52,9 @@ export async function parseImportFile(file: File): Promise<ParsedImport> {
   if (file.name.endsWith(".zip")) return parseZipFile(file, attachmentFiles);
   if (file.name.endsWith(".json")) {
     const text = await file.text();
-    return { data: JSON.parse(text) as ExportData, attachmentFiles };
+    const data = JSON.parse(text);
+    validateExportData(data);
+    return { data, attachmentFiles };
   }
   throw new Error(`Unsupported file type: ${file.name}. Please upload a .zip or .json file.`);
 }
@@ -83,7 +85,11 @@ async function parseZipFile(file: File, attachmentFiles: Map<string, Uint8Array>
     const compressedSize = view.getUint32(cdOffset + 20, true);
     const data = buffer.slice(dataStart, dataStart + compressedSize);
 
-    if (name === "data.json") dataJson = JSON.parse(new TextDecoder().decode(data)) as ExportData;
+    if (name === "data.json") {
+      const parsed = JSON.parse(new TextDecoder().decode(data));
+      validateExportData(parsed);
+      dataJson = parsed;
+    }
     else if (name.startsWith("attachments/")) attachmentFiles.set(name, data);
 
     // Advance past extra field and file comment in central directory entry
@@ -107,6 +113,25 @@ function findEocd(buffer: Uint8Array): number {
 // ============================================================================
 // Validate
 // ============================================================================
+
+function validateExportData(data: unknown): asserts data is ExportData {
+  if (typeof data !== "object" || data === null) {
+    throw new Error("Format invalid: root element must be an object.");
+  }
+  const obj = data as Record<string, unknown>;
+  if (obj.version !== 1) {
+    throw new Error(`Unsupported version: ${String(obj.version)}. Only version 1 is supported.`);
+  }
+  if (!Array.isArray(obj.memos)) {
+    throw new Error("Format invalid: 'memos' must be an array.");
+  }
+  for (let i = 0; i < obj.memos.length; i++) {
+    const memo = obj.memos[i] as Record<string, unknown>;
+    if (typeof memo.content !== "string") {
+      throw new Error(`Memo #${i + 1}: 'content' field is missing or invalid.`);
+    }
+  }
+}
 
 // ============================================================================
 // Preview
@@ -167,11 +192,12 @@ export function getAttachmentData(attachmentFiles: Map<string, Uint8Array>, path
   return attachmentFiles.get(path) ?? null;
 }
 
-export function parseVisibility(visibility: string): Visibility {
-  switch (visibility) {
-    case "PUBLIC": return Visibility.PUBLIC;
-    case "PROTECTED": return Visibility.PROTECTED;
-    case "PRIVATE": return Visibility.PRIVATE;
-    default: return Visibility.PRIVATE;
-  }
+export function parseVisibility(value: string): Visibility {
+  const num = Number(value);
+  if (num >= 1 && num <= 3) return num as Visibility;
+  const upper = value?.toUpperCase?.();
+  if (upper === "PRIVATE") return Visibility.PRIVATE;
+  if (upper === "PROTECTED") return Visibility.PROTECTED;
+  if (upper === "PUBLIC") return Visibility.PUBLIC;
+  return Visibility.PRIVATE;
 }
