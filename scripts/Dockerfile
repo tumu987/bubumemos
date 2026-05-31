@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # Copy source code and pre-built frontend
 COPY . .
-COPY --from=frontend /web-build/dist web/dist
+COPY --from=frontend /web-build/dist server/router/frontend/dist
 
 # Please build frontend first, so that the static files are available.
 # Refer to `pnpm release` in package.json for the build command.
