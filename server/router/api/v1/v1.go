@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
