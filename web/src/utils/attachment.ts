@@ -28,6 +28,13 @@ export const getAttachmentType = (attachment: Attachment) => {
   } else if (attachment.filename?.endsWith(".md")) {
     // Known Bug#17: .md files may arrive as text/plain
     return "text/markdown";
+  } else if (attachment.type === "application/octet-stream" || attachment.type === "") {
+    // Fallback: detect by filename extension when MIME is missing or generic
+    const ext = attachment.filename?.split(".").pop()?.toLowerCase();
+    if (ext) {
+      if (["mov", "mp4", "mkv", "avi", "webm", "m4v", "3gp", "ogv", "wmv", "flv"].includes(ext)) return "video/*";
+      if (["mp3", "wav", "flac", "aac", "ogg", "m4a", "wma", "opus", "aiff"].includes(ext)) return "audio/*";
+    }
   } else if (attachment.type.startsWith("text")) {
     return "text/*";
   } else if (attachment.type.startsWith("application/epub+zip")) {
