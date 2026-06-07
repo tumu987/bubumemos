@@ -2,6 +2,7 @@ import { DownloadIcon, FileIcon, PaperclipIcon } from "lucide-react";
 import type { PropsWithChildren } from "react";
 import { useMemo, useState } from "react";
 import AudioPlayerDialog from "@/components/AudioPlayerDialog";
+import VideoPoster from "@/components/VideoPoster";
 import MetadataSection from "@/components/MemoMetadata/MetadataSection";
 import MotionPhotoPreview from "@/components/MotionPhotoPreview";
 import { cn } from "@/lib/utils";
@@ -107,13 +108,7 @@ const CollageVisualItem = ({
   return (
     <VisualTile className={cn("block h-full w-full", className)} onPreview={onPreview} overlayLabel={overlayLabel}>
       {item.kind === "video" ? (
-        <video
-          src={item.sourceUrl}
-          className={cn(COVER_MEDIA_CLASS, "object-contain")}
-          controls
-          playsInline
-          preload="metadata"
-        />
+        <VideoPoster sourceUrl={item.sourceUrl} posterUrl={item.posterUrl} alt={item.filename} className={COVER_MEDIA_CLASS} />
       ) : item.kind === "motion" && motionPreviewProps ? (
         <MotionPhotoPreview
           posterUrl={item.posterUrl}

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MobileNavBar from "@/components/MobileNavBar";
 import MotionPhotoPreview from "@/components/MotionPhotoPreview";
