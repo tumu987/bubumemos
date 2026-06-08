@@ -2,11 +2,26 @@
 
 向上游 [usememos/memos](https://github.com/usememos/memos) 合并新版本的操作指南。基于 2026-05-31 实际合并 v0.29.1 的经验编写。
 
+## 项目模式
+
+bubumemos 是 memos 的 **fork + 定制修改 + 持续合并上游** 模式。
+
+- 模块路径保持 `github.com/usememos/memos`（不改，才能 `git merge` 上游）
+- 定制代码直接改在 main 分支，不另开独立分支
+- 上游发新版时 `git merge upstream/main`，拿全所有修复+功能
+- 冲突集中在 3 个文件：`v1.go`、`PreviewImageDialog.tsx`、`AttachmentListView.tsx`
+
+为什么不用其他方案：
+- memos 是服务端二进制，不是库，没法当 Go 依赖引入
+- 没有插件系统，开发一个工作量远超定制本身
+- cherry-pick 容易漏 bug 修复，维护成本高
+
 ## 前置设置（只需一次）
 
 ```bash
 cd /Users/bubu/Claude项目/bubumemos/memos
 git remote add upstream https://github.com/usememos/memos.git
+git config rerere.enabled true   # Git 记住冲突解决方式，下次自动处理
 ```
 
 ## 合并流程
