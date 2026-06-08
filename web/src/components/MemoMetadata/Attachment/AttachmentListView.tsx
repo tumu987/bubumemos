@@ -121,11 +121,11 @@ const CollageVisualItem = ({
         />
       ) : item.kind === "pdf" ? (
         <div className={cn(COVER_MEDIA_CLASS, "flex items-center justify-center")}>
-          <PdfCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+          <PdfCard filename={item.filename} size={Number(item.attachments[0]?.size ?? 0)} onClick={() => onPreview?.()} />
         </div>
       ) : item.kind === "md" ? (
         <div className={cn(COVER_MEDIA_CLASS, "flex items-center justify-center")}>
-          <MdCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+          <MdCard filename={item.filename} size={Number(item.attachments[0]?.size ?? 0)} onClick={() => onPreview?.()} />
         </div>
       ) : (
         <img src={item.posterUrl} alt={item.filename} className={COVER_MEDIA_CLASS} loading="lazy" decoding="async" />
@@ -181,7 +181,7 @@ const SingleVisualItem = ({ item, onPreview }: { item: VisualItem; onPreview?: (
   if (item.kind === "pdf") {
     return (
       <VisualTile className="block max-w-full" onPreview={onPreview}>
-        <PdfCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+        <PdfCard filename={item.filename} size={Number(item.attachments[0]?.size ?? 0)} onClick={() => onPreview?.()} />
       </VisualTile>
     );
   }
@@ -189,7 +189,7 @@ const SingleVisualItem = ({ item, onPreview }: { item: VisualItem; onPreview?: (
   if (item.kind === "md") {
     return (
       <VisualTile className="block max-w-full" onPreview={onPreview}>
-        <MdCard filename={item.filename} size={0} onClick={() => onPreview?.()} />
+        <MdCard filename={item.filename} size={Number(item.attachments[0]?.size ?? 0)} onClick={() => onPreview?.()} />
       </VisualTile>
     );
   }
