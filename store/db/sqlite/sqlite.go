@@ -72,7 +72,9 @@ func (d *DB) RunInTransaction(ctx context.Context, fn func(ctx context.Context) 
 	}
 	txCtx := store.WithTxContext(ctx, tx)
 	if err := fn(txCtx); err != nil {
-		_ = tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return errors.Wrapf(err, "rollback failed: %v", rbErr)
+		}
 		return err
 	}
 	return tx.Commit()

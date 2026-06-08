@@ -298,6 +298,7 @@ const ImportExportSection = () => {
                 const headers: Record<string, string> = {};
                 if (token) headers["Authorization"] = `Bearer ${token}`;
                 const response = await fetch(url, { headers });
+                if (!response.ok) return null;
                 const blob = await response.blob();
                 const data = new Uint8Array(await blob.arrayBuffer());
                 return { fileName, data };
