@@ -60,11 +60,32 @@ function encodeStr(str: string): Uint8Array {
 // 公开 API
 // ============================================================================
 
+/**
+ * 将 Date 转换为 DOS 日期时间格式（小端序）。
+ * DOS 日期: yyyyyyymmmmddddd (1980 年起)
+ * DOS 时间: hhhhhmmmmmmsssss (秒 / 2)
+ */
+function toDosDateTime(date: Date): { dosDate: number; dosTime: number } {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+
+  const dosDate = ((year - 1980) << 9) | (month << 5) | day;
+  const dosTime = (hours << 11) | (minutes << 5) | Math.floor(seconds / 2);
+
+  return { dosDate, dosTime };
+}
+
 interface ZipEntry {
   /** 文件名（仅支持 ASCII，如 "attachments/photo.jpg"） */
   name: string;
   /** 文件数据 */
   data: Uint8Array | Blob;
+  /** 可选：文件修改时间，默认当前时间 */
+  modTime?: Date;
 }
 
 /**
@@ -90,6 +111,7 @@ export async function createZip(entries: ZipEntry[]): Promise<Blob> {
     const nameLen = nameBytes.length;
     const crc = crc32(raw);
     const size = raw.length;
+    const { dosDate, dosTime } = toDosDateTime(entry.modTime ?? new Date());
 
     // --- Local file header ---
     const localHeaderSize = 30 + nameLen;
@@ -98,8 +120,8 @@ export async function createZip(entries: ZipEntry[]): Promise<Blob> {
     writeU16(localHeader, 4, 20); // version needed
     writeU16(localHeader, 6, 0); // general purpose bit flag
     writeU16(localHeader, 8, 0); // compression method: store
-    writeU16(localHeader, 10, 0); // last mod file time
-    writeU16(localHeader, 12, 0); // last mod file date
+    writeU16(localHeader, 10, dosTime); // last mod file time
+    writeU16(localHeader, 12, dosDate); // last mod file date
     writeU32(localHeader, 14, crc);
     writeU32(localHeader, 18, size); // compressed size
     writeU32(localHeader, 22, size); // uncompressed size
@@ -117,8 +139,8 @@ export async function createZip(entries: ZipEntry[]): Promise<Blob> {
     writeU16(cd, 6, 20); // version needed
     writeU16(cd, 8, 0); // general purpose bit flag
     writeU16(cd, 10, 0); // compression method: store
-    writeU16(cd, 12, 0); // last mod file time
-    writeU16(cd, 14, 0); // last mod file date
+    writeU16(cd, 12, dosTime); // last mod file time
+    writeU16(cd, 14, dosDate); // last mod file date
     writeU32(cd, 16, crc);
     writeU32(cd, 20, size); // compressed size
     writeU32(cd, 24, size); // uncompressed size

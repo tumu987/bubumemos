@@ -8,7 +8,7 @@ import (
 )
 
 // Version is set by release builds and defaults to a development build marker.
-var Version = "0.1.6"
+var Version = "0.1.7"
 
 // Commit is set by CI builds and defaults to an unknown revision marker.
 var Commit = "unknown"

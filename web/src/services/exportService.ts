@@ -8,7 +8,7 @@ export interface MemoExport {
   tags: string[];
   pinned: boolean;
   createTime: string;
-  attachments: { path: string; name: string }[];
+  attachments: { path: string; name: string; createTime?: string }[];
 }
 
 export interface ExportData {

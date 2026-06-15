@@ -207,7 +207,7 @@ type Attachment struct {
 	// The name of the attachment.
 	// Format: attachments/{attachment}
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Output only. The creation timestamp.
+	// Optional. The creation timestamp. If not set, the server will use the current time.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	// The filename of the attachment.
 	Filename string `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
@@ -724,7 +724,7 @@ const file_api_v1_attachment_service_proto_rawDesc = "" +
 	"\n" +
 	"Attachment\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tB\x03\xe0A\bR\x04name\x12@\n" +
-	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\n" +
+	"\vcreate_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x01R\n" +
 	"createTime\x12\x1f\n" +
 	"\bfilename\x18\x03 \x01(\tB\x03\xe0A\x02R\bfilename\x12\x1d\n" +
 	"\acontent\x18\x04 \x01(\fB\x03\xe0A\x04R\acontent\x12(\n" +

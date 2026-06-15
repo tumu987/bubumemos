@@ -115,6 +115,9 @@ func (s *APIV1Service) CreateAttachment(ctx context.Context, request *v1pb.Creat
 		Filename:  request.Attachment.Filename,
 		Type:      request.Attachment.Type,
 	}
+	if request.Attachment.CreateTime != nil {
+		create.CreatedTs = request.Attachment.CreateTime.AsTime().Unix()
+	}
 
 	inputMotionMedia, err := validateClientMotionMedia(request.Attachment.MotionMedia, attachmentUID)
 	if err != nil {

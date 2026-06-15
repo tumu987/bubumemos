@@ -162,12 +162,15 @@ const ImportExportSection = () => {
     const total = importPreview.newMemos.length + importPreview.updateMemos.length;
 
     // 上传单个附件，失败返回 null
-    const uploadOne = async (att: { path: string; name: string }): Promise<{ name: string } | null> => {
+    const uploadOne = async (att: { path: string; name: string; createTime?: string }, memoCreateTime?: string): Promise<{ name: string } | null> => {
       const data = getAttachmentData(parsedImport.attachmentFiles, att.path);
       if (!data) return null;
+      // 优先用附件自身导出时间，其次用 memo 时间
+      const isoTime = att.createTime || memoCreateTime;
+      const createTime = isoTime ? timestampFromDate(new Date(isoTime)) : undefined;
       const resp = await attachmentServiceClient.createAttachment(
         create(CreateAttachmentRequestSchema, {
-          attachment: { filename: att.name, content: data, type: "", name: "" },
+          attachment: { filename: att.name, content: data, type: "", name: "", createTime },
           attachmentId: "",
         }),
       );
@@ -175,8 +178,8 @@ const ImportExportSection = () => {
     };
 
     // 批量并发上传附件，返回成功 ref 列表，同时累加计数器
-    const uploadMany = async (atts: { path: string; name: string }[], counter: "attachmentsCreated" | "attachmentsUpdated") => {
-      const results = await Promise.all(atts.map((a) => uploadOne(a).catch(() => null)));
+    const uploadMany = async (atts: { path: string; name: string; createTime?: string }[], counter: "attachmentsCreated" | "attachmentsUpdated", memoCreateTime?: string) => {
+      const results = await Promise.all(atts.map((a) => uploadOne(a, memoCreateTime).catch(() => null)));
       const refs: { name: string }[] = [];
       for (const r of results) {
         if (r) { refs.push(r); result[counter]++; }
@@ -195,7 +198,7 @@ const ImportExportSection = () => {
     for (let i = 0; i < importPreview.newMemos.length; i++) {
       const me = importPreview.newMemos[i];
       try {
-        const refs = await uploadMany(me.attachments ?? [], "attachmentsCreated");
+        const refs = await uploadMany(me.attachments ?? [], "attachmentsCreated", me.createTime);
         const ts = me.createTime ? timestampFromDate(new Date(me.createTime)) : undefined;
         await memoServiceClient.createMemo(create(CreateMemoRequestSchema, {
           memo: { content: me.content, visibility: parseVisibility(me.visibility), tags: me.tags ?? [],
@@ -214,7 +217,7 @@ const ImportExportSection = () => {
       const { export: me, existingMemoName, newAttachmentNames, existingAttachments } = importPreview.updateMemos[i];
       try {
         const newOnly = (me.attachments ?? []).filter((a) => newAttachmentNames.includes(a.name));
-        const newRefs = await uploadMany(newOnly, "attachmentsUpdated");
+        const newRefs = await uploadMany(newOnly, "attachmentsUpdated", me.createTime);
         const newRefMap = new Map(newRefs.map((r, j) => [newOnly[j].name, r]));
         const existingByFilename = new Map(existingAttachments.map((a) => [a.filename, a]));
         const ordered = (me.attachments ?? []).map((a) => existingByFilename.get(a.name) ?? newRefMap.get(a.name) ?? { name: a.name });
@@ -301,7 +304,8 @@ const ImportExportSection = () => {
                 if (!response.ok) return null;
                 const blob = await response.blob();
                 const data = new Uint8Array(await blob.arrayBuffer());
-                return { fileName, data };
+                const createTime = att.createTime ? timestampDate(att.createTime).toISOString() : undefined;
+                return { fileName, data, createTime };
               } catch {
                 return null;
               }
@@ -311,7 +315,7 @@ const ImportExportSection = () => {
           for (const r of results) {
             if (!r) continue;
             attachmentEntries.push({ name: `attachments/${r.fileName}`, data: r.data });
-            memoAtts.push({ path: `attachments/${r.fileName}`, name: r.fileName });
+            memoAtts.push({ path: `attachments/${r.fileName}`, name: r.fileName, createTime: r.createTime });
           }
 
           const createTime = memo.createTime ? timestampDate(memo.createTime).toISOString() : new Date().toISOString();
@@ -349,7 +353,7 @@ const ImportExportSection = () => {
       // Known Bug#9: trigger download after all awaits complete
       const blob = await createZip(entries);
       // Known Bug#8: avoid hyphens in filename for macOS
-      const fileName = `memos_export_${dateStr}.zip`;
+      const fileName = `memos_export_${exportFormat}_${dateStr}.zip`;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
